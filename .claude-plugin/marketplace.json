@@ -6,7 +6,7 @@
   "plugins": [
     {
       "name": "hustlebot",
-      "source": "./plugins/hustlebot",
+      "source": "./",
       "description": "Cross-session goal loop: /hustlebot:hustle takes a project from zero (grilling interview -> GOAL.md) to a running self-scheduling chain that hustles on the goal day and night, around subscription limits, with a zero-token web monitor"
     }
   ]

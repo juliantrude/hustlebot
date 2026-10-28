@@ -1,6 +1,6 @@
 # hustlebot — a cross-session goal loop for Claude Code
 
-<img src="plugins/hustlebot/assets/working.svg" alt="The hustlebot sits at a screen and types; code scrolls past and the cursor blinks." width="520">
+<img src="assets/working.svg" alt="The hustlebot sits at a screen and types; code scrolls past and the cursor blinks." width="520">
 
 Claude Code hustles toward a long-term goal **across many sessions**: one
 small, verified increment per headless run, self-scheduling the next run —
@@ -78,7 +78,7 @@ The dashboard puts a face on that table — the avatar shows the chain's state a
 a glance, so you can tell from across the room whether it is working, waiting,
 or parked at a limit:
 
-| <img src="plugins/hustlebot/assets/waiting.svg" width="230" alt="The bot lifts a mug of coffee."> | <img src="plugins/hustlebot/assets/sleeping.svg" width="230" alt="The bot sleeps in a hammock under a crescent moon, Zzz drifting up."> | <img src="plugins/hustlebot/assets/searching.svg" width="230" alt="The bot scans the horizon with binoculars, a question mark bobbing overhead."> |
+| <img src="assets/waiting.svg" width="230" alt="The bot lifts a mug of coffee."> | <img src="assets/sleeping.svg" width="230" alt="The bot sleeps in a hammock under a crescent moon, Zzz drifting up."> | <img src="assets/searching.svg" width="230" alt="The bot scans the horizon with binoculars, a question mark bobbing overhead."> |
 |:--:|:--:|:--:|
 | **waiting** — between runs | **sleeping** — parked at a limit | **searching** — monitor unreachable |
 

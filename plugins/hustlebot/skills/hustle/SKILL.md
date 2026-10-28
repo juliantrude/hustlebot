@@ -16,23 +16,30 @@ platform scheduling (systemd unit on Linux), and smoke-tests the scheduler.
 If the smoke test fails, stop and debug before going further — a broken
 scheduler means a chain that silently dies.
 
-## Phase 2 — Plan (skip if GOAL.md exists and is `STATUS: READY` or beyond)
+## Phase 2 — Plan (skip if a ready GOAL.md or CHARTER.md already exists)
 
-Follow the `/grill-goal` skill: explore the project first, then grill the user
-one question at a time (recommended answer included) until North star,
-Definition of Done, Working Agreements, and a dependency-ordered increment
-plan are nailed down. Output: a loop-ready `GOAL.md`, `STATUS: READY`.
+First pick the **mode** with the user (unless one is already set up):
 
-If a GOAL.md exists but looks half-finished (unfilled placeholders, empty
-plan), treat it as input to the interview, not as ready.
+- **plan mode** — a fixed goal the loop executes and then stops. Follow the
+  `/grill-goal` skill → a loop-ready `GOAL.md` (`STATUS: READY`).
+- **charter mode** — a self-directed PO+Dev loop against a **Plane** backlog that
+  keeps setting itself new goals until a feature-freeze date or manual abort.
+  Follow the `/grill-charter` skill → a `CHARTER.md`, the Plane key in
+  `.hustle/secrets`, and `HUSTLE_MODE="charter"` in `.hustle/config`.
+
+Explore the project first, then grill one question at a time (recommended answer
+included). If a GOAL.md/CHARTER.md exists but looks half-finished (unfilled
+`_TODO:`), treat it as input to the interview, not as ready.
 
 ## Phase 3 — Pre-flight check (never skip)
 
 Confirm with the user before igniting — this is the last human checkpoint
 before an unattended agent starts committing and pushing on its own:
 
-1. Show a 3-line summary: the north star, the first increment it will tackle,
-   and the configured model/effort from `.hustle/config`.
+1. Show a 3-line summary: the north star / charter mission, what the first run
+   does (plan mode: the first increment; charter mode: a **Planner** run that
+   seeds the Plane backlog), and the configured model/effort from `.hustle/config`
+   (charter mode also draws on `.hustle/secrets` for the Plane key).
 2. Point out the permission mode (`HUSTLE_SKIP_PERMISSIONS` in the config) and
    what it means.
 3. On Linux: check `loginctl show-user $USER --property=Linger`; if linger is

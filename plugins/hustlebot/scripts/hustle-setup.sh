@@ -107,7 +107,14 @@ PY
 # advance-goal loop configuration (sourced by bash, parsed by the monitor)
 HUSTLE_PROJECT="$PROJECT"
 HUSTLE_SLUG="$SLUG"
+# Mode: "plan" = execute a GOAL.md and stop (classic); "charter" = self-directed
+# PO+Dev loop against a Plane backlog, bounded by CHARTER.md. /grill-charter sets
+# this to "charter" and fills the Plane keys below.
+HUSTLE_MODE="plan"
+# Executor model (also the per-issue fallback in charter mode).
 HUSTLE_MODEL="sonnet"
+# Planner model for charter mode (the strong model that writes the backlog).
+HUSTLE_PLAN_MODEL="opus"
 HUSTLE_EFFORT="high"
 # The loop runs unattended: without this it cannot use tools headlessly.
 # Understand what that means before flipping it — see the plugin README.
@@ -118,6 +125,22 @@ EOF
   echo "wrote $HUSTLE_HOME/config (port ${FREE_PORT:-8787})"
 else
   echo "kept existing $HUSTLE_HOME/config"
+fi
+
+# Secrets live apart from config (the monitor parses/surfaces config). Scaffold a
+# 0600 file so the path + perms exist; /grill-charter fills PLANE_API_KEY. Sourced
+# by hustle-session.sh into the run env; uses `export` so `claude -p` inherits it.
+if [ ! -f "$HUSTLE_HOME/secrets" ]; then
+  cat > "$HUSTLE_HOME/secrets" <<'EOF'
+# Secrets sourced into the headless run env — NEVER commit, never display.
+# Charter mode needs the Plane API key here (filled by /grill-charter):
+# export PLANE_API_KEY="plane_api_..."
+EOF
+  chmod 600 "$HUSTLE_HOME/secrets"
+  echo "wrote $HUSTLE_HOME/secrets (0600)"
+else
+  chmod 600 "$HUSTLE_HOME/secrets" 2>/dev/null || true
+  echo "kept existing $HUSTLE_HOME/secrets"
 fi
 CONFIGURED_PORT="$(grep -oE '^HUSTLE_PORT="?[0-9]+' "$HUSTLE_HOME/config" | grep -oE '[0-9]+$' || echo 8787)"
 
@@ -176,7 +199,9 @@ cat <<EOF
 hustle installed for: $PROJECT  (slug: $SLUG)
 
 Next steps:
-  1. Build your GOAL.md:            /grill-goal   (in a Claude Code session in this project)
+  1. Define the work (in a Claude Code session in this project):
+       plan mode    -> /grill-goal      (a GOAL.md the loop executes, then stops)
+       charter mode -> /grill-charter    (a CHARTER.md + Plane backlog, self-directed)
   2. Kick off the chain:
 EOF
 if [ "$OS" = "Darwin" ]; then

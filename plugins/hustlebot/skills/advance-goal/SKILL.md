@@ -1,6 +1,6 @@
 ---
 name: advance-goal
-description: Advance one increment of a long-running, multi-session goal defined in GOAL.md, then self-check the subscription budget via /usage and schedule the next run. Designed to be driven by the headless one-shot chain (hustle-session.sh) or by `/loop /advance-goal` so it keeps working across session-limit resets.
+description: The Executor of the hustle loop — advance one verified increment then budget-check and schedule the next run. In plan mode it works a GOAL.md; in charter mode it pulls one work item from the Plane backlog, does it, and moves it to Done. Driven headless by hustle-session.sh or by `/loop /advance-goal` across session-limit resets.
 ---
 
 # advance-goal — one iteration of a cross-session goal loop
@@ -10,7 +10,15 @@ The single source of truth is **`GOAL.md`** in the project root. Everything you
 need to resume — the north-star goal, the increment plan, what's done, and the
 explicit next action — lives there. Trust it over your memory of earlier turns.
 
-## Protocol (do these in order, every iteration)
+## First: which mode?
+
+Read `HUSTLE_MODE` from `.hustle/config` (default `plan`).
+- **`plan`** (classic) → follow the **Plan-mode protocol** below, unchanged.
+- **`charter`** → the backlog lives in **Plane**, not `GOAL.md`; the human-owned
+  mandate is `CHARTER.md`. Skip the Plan-mode protocol and follow the
+  **Charter-mode protocol** near the bottom instead, then stop.
+
+## Plan-mode protocol (do these in order, every iteration)
 
 ### 1. Load state
 - Read `GOAL.md`. If it does not exist, STOP and tell the user to create it
@@ -141,10 +149,81 @@ STATUS|phase=<active|on_hold|complete|not_ready|blocked>|session=<int>|week=<int
 
 Example: `STATUS|phase=on_hold|session=88|week=61|reset=2026-07-15 22:00|note=session limit reached, restart armed`
 
+## Charter-mode protocol (Plane backlog)
+
+Same engine — one verified increment per run — but the work comes from **Plane**
+and the mandate from **`CHARTER.md`** (in your cwd). The Plane API key is in the
+env as **`$PLANE_API_KEY`** (never print it). API shape: see `/generate-plan`'s
+quick reference (same base, header, endpoints). You are the **Executor** (Dev);
+`/generate-plan` is the Planner (PO).
+
+### C1. Load & guard
+- Read `.hustle/config` (`HUSTLE_MODE`, `HUSTLE_MODEL` = your fallback model).
+- Read `CHARTER.md`: Plane url + slug, **project mapping** (`project_id → repo`),
+  **git workflow** (`direct-main | branch-mr`), the **quality bar** for Done, the
+  **resume guard** `N` (default 2), hard **constraints**, budget thresholds.
+- If `CHARTER.md` shows `STATUS: COMPLETE` or `$PLANE_API_KEY` is empty → stop
+  (complete / blocked). Never act outside the mapped projects, and honour every
+  hard constraint on every action.
+
+### C2. Recover before pulling (one-in-flight invariant)
+- Look for an issue in a **mapped** project that is **In Progress (started) AND
+  assigned to you** (your user id from `GET /users/me/`). If one exists, that is
+  your target — resume it. Count your prior "picked up" comments on it = the
+  **resume count**.
+- If resume count ≥ `N` → the item is mis-sized: label it `too-big`, comment the
+  actual effort/what's left, move it **back to Todo** and unassign yourself, then
+  hand off to the Planner (set marker `planner`, §C7) and stop — don't burn more
+  budget on it.
+
+### C3. Budget pre-check (before claiming anything new)
+- Only if you have **no** recovered item: parse `/usage` (as in Plan-mode §5). If
+  `session ≥ pause threshold` (or `week ≥ weekly threshold`) → claim **nothing**,
+  arm the next run at the reset, set marker `executor`, and exit. An item is only
+  started with real headroom, so it can actually finish this session.
+
+### C4. Claim the next item
+- Pick the highest-`priority` **Todo (unstarted)** issue across mapped projects
+  (tie-break by lowest `sequence_id`). No Todo anywhere → set marker `planner`
+  (time to plan), arm next run, exit.
+- **Claim = lock:** PATCH it to **In Progress (started)**, add yourself to
+  `assignees`, and comment "picked up, run &lt;UTC ts&gt;". Read its `model:` label
+  only to inform the *next* marker, not this run.
+
+### C5. Do exactly one increment
+- Resolve the repo from the mapping (the issue's `project_id` → repo path). Work
+  **only** in that repo. Do the smallest shippable step that satisfies the issue's
+  acceptance criteria.
+- Follow the repo's own conventions (its `CLAUDE.md`).
+
+### C6. Verify, then commit & close
+- Verify to the charter's quality bar (tests / boot checks — prefer running them).
+  If it fails and you can't fix it this run: comment the blocker, move the issue
+  **back to Todo** (hard external block → also label `blocked`), do **not** mark
+  Done. Then §C7.
+- If verified: commit per the charter git workflow —
+  - `direct-main`: one commit on `main` whose message references the issue
+    (`&lt;IDENTIFIER&gt;-&lt;sequence_id&gt;: …`), then `git push origin main`.
+  - `branch-mr`: branch off `dev`, push, open an MR into `dev`.
+  Then PATCH the issue to **Done (completed)** and comment a one-line summary.
+
+### C7. Hand off (marker) + budget/arm
+- **Marker** `.hustle/next-phase`: peek the next highest-priority Todo across
+  mapped projects → `executor:<model from its model: label>` (bare `executor` if
+  unknown); no Todo left → `planner`. E.g. `printf 'executor:opus' > .hustle/next-phase`.
+- **Budget + arm:** identical to Plan-mode §5 (headless → `hustle-scheduler.sh
+  arm …`; `/loop` → recommend a `ScheduleWakeup`).
+
+### C8. Report
+Human status line, then the same machine `STATUS|…` line as Plan-mode §6:
+`phase=active` when you closed an item, `blocked` when an item couldn't be
+verified, `on_hold` when budget-paused, `complete` when CHARTER.md is COMPLETE.
+
 ## Notes
 - Keep each iteration cheap and focused; the loop's value is consistency, not
   heroics per turn.
 - If `claude -p "/usage"` errors or returns nothing, assume budget is fine and
   arm a short next run (fail open, don't stall the goal).
-- Never fabricate progress in `GOAL.md`. A checked box must correspond to
-  verified work.
+- Never fabricate progress. In plan mode a checked box, in charter mode a Done
+  issue, must correspond to verified work. Never move a human's issues except the
+  one you claimed.

@@ -33,8 +33,12 @@ output, and handle failures.
    macOS → launchd bootstrap (`launchctl print gui/$(id -u)` reachable?).
 
 4. Walk the user through the printed next steps:
-   - `/grill-goal` to build the GOAL.md (required before the first run),
-   - the platform-specific kickoff command,
+   - define the work (required before the first run): `/grill-goal` for **plan
+     mode** (a GOAL.md the loop executes then stops), or `/grill-charter` for
+     **charter mode** (a CHARTER.md + Plane backlog, self-directed). The installer
+     writes `.hustle/config` with `HUSTLE_MODE="plan"` by default and scaffolds a
+     `0600 .hustle/secrets` file that `/grill-charter` fills with the Plane key,
+     - the platform-specific kickoff command,
    - the monitor URL (`http://<host>:8787`) and the kill switch.
 
 5. Mention the two standing caveats:

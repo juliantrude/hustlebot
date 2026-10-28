@@ -1,7 +1,7 @@
 {
   "name": "hustlebot",
-  "version": "0.3.0",
-  "description": "Cross-session goal loop for Claude Code: /hustle orchestrates planning (grilling interview -> GOAL.md), setup and ignition of a self-scheduling chain that works one verified increment per headless run, parking at subscription limits and resuming on reset. Includes a zero-token web monitor with an animated status avatar.",
+  "version": "0.4.0",
+  "description": "Cross-session goal loop for Claude Code: /hustle orchestrates planning, setup and ignition of a self-scheduling chain that works one verified increment per headless run, parking at subscription limits and resuming on reset. Two modes: plan mode executes a grilled GOAL.md then stops; charter mode runs a self-directed PO+Dev loop against a Plane backlog (Planner invents work, Executor builds it) until a feature-freeze date or manual abort. Includes a zero-token web monitor with an animated status avatar.",
   "author": {
     "name": "Julian Trude"
   }

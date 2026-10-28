@@ -34,7 +34,7 @@ GOAL.md  ←→  /advance-goal (skill, 1 increment per run)
 > running chains are unaffected and need no migration.
 
 ```
-/plugin marketplace add juliantrude/skills
+/plugin marketplace add juliantrude/hustlebot
 /plugin install hustlebot@trude-claude
 ```
 

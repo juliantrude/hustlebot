@@ -38,9 +38,11 @@ GOAL.md  ←→  /advance-goal (skill, 1 increment per run)
 > and is called `juliantrude`. If you installed from `trude-claude`, run
 > `/plugin marketplace remove trude-claude` and install again below.
 
-```
-/plugin marketplace add juliantrude/claude-plugins
-/plugin install hustlebot@juliantrude
+hustlebot comes from the [juliantrude marketplace](https://github.com/juliantrude/claude-plugins):
+
+```sh
+claude plugin marketplace add juliantrude/claude-plugins
+claude plugin install hustlebot@juliantrude
 ```
 
 ## Use

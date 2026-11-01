@@ -32,10 +32,15 @@ GOAL.md  ←→  /advance-goal (skill, 1 increment per run)
 > install again below. **Nothing in your projects changes** — `.hustle/`, the
 > `HUSTLE_*` config keys and the `hustle-<slug>` services keep their names, so
 > running chains are unaffected and need no migration.
+>
+> **Marketplace moved:** the marketplace now lives in
+> [juliantrude/claude-plugins](https://github.com/juliantrude/claude-plugins)
+> and is called `juliantrude`. If you installed from `trude-claude`, run
+> `/plugin marketplace remove trude-claude` and install again below.
 
 ```
 /plugin marketplace add juliantrude/claude-plugins
-/plugin install hustlebot@trude-claude
+/plugin install hustlebot@juliantrude
 ```
 
 ## Use

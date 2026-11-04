@@ -159,3 +159,22 @@ the tasks that can run in parallel, and hand those to subagents.
     in use. Approvals (model upgrades, graph growth) with approve / reject.
 - graph-engine 1.1.0 (local, not pushed): rootless dependency graphs, look
   `active` (blue), `?view=mini`.
+
+## Prototype findings (2026-11-04, `master/prototypes/`)
+
+- **`/usage` over a pseudo-terminal works** (`usage_pty.py`, pexpect + pyte):
+  an invisible interactive session shows "Current session … 15% used ·
+  Resets 9:10pm" and "Current week (all models) … 29% used · Resets Nov 7,
+  10pm", parsed into JSON. Costs nothing (no prompt is sent; the session
+  reports $0). Fragile by nature: it parses a screen, not an API.
+- **Headless sessions in a worktree load the project fully**
+  (`worktree_session.sh`): `CLAUDE.md`, checked-in `.claude/settings.json`
+  hooks — and also the main checkout's gitignored `settings.local.json` (env
+  and hooks), without copying it. Only non-Claude gitignored files (`.env`,
+  …) still need to be copied in.
+- **Auto memory is shared:** the memory dir is created under the main
+  checkout's project path; transcripts are stored per worktree path.
+- **Own accounting is feasible:** the JSON result has tokens per model
+  (`modelUsage`, incl. cache read/creation) and `total_cost_usd`.
+- Runner detail: start `claude -p` with stdin closed, else it waits 3 s for
+  piped input.

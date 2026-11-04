@@ -1,0 +1,49 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>hustlebot</title>
+<link rel="stylesheet" href="app.css">
+</head><body><div class="wrap">
+ <header class="top">
+  <h1>hustlebot</h1>
+  <div class="meters">
+   <div class="meter"><div class="k">Session (5h)</div><div class="bar"><i id="usageSession"></i></div><div class="muted" id="usageSessionText"></div></div>
+   <div class="meter"><div class="k">Week</div><div class="bar"><i id="usageWeek"></i></div><div class="muted" id="usageWeekText"></div></div>
+   <div class="meter points">
+    <div class="k">Session points</div>
+    <div class="stepper"><button type="button" data-points="-1" aria-label="fewer points">−</button><span id="points"></span><button type="button" data-points="1" aria-label="more points">+</button></div>
+    <div class="muted" id="pointsText"></div>
+   </div>
+  </div>
+ </header>
+
+ <section id="approvals" hidden>
+  <h2>Waiting for your approval</h2>
+  <ul id="approvalList"></ul>
+ </section>
+
+ <h2>Chains</h2>
+ <div id="chains"></div>
+</div>
+
+<div id="overlay" hidden>
+ <div class="overlay-bar"><span id="overlayTitle"></span><button type="button" id="overlayClose" aria-label="close">✕</button></div>
+ <iframe id="overlayFrame" title="Chain graph"></iframe>
+</div>
+
+<template id="chainCard">
+ <article class="chain">
+  <label class="switch" title="active / inactive"><input type="checkbox" class="active"><span></span></label>
+  <div class="weight" title="weight (share among active chains)">
+   <button type="button" data-weight="-1" aria-label="lower weight">−</button><span class="w"></span><button type="button" data-weight="1" aria-label="higher weight">+</button>
+   <div class="share muted"></div>
+  </div>
+  <span class="status"></span>
+  <span class="project"></span>
+  <span class="title"></span>
+  <div class="progress"><div class="bar ok"><i></i></div><div class="muted count"></div></div>
+  <div class="agents"></div>
+  <div class="preview"><iframe tabindex="-1" title="graph preview" loading="lazy"></iframe></div>
+ </article>
+</template>
+<script src="app.js"></script>
+</body></html>

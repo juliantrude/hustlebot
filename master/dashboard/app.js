@@ -3,7 +3,9 @@
 
 const $ = (id) => document.getElementById(id);
 const STATUS = { running: "running", waiting: "waiting", blocked: "blocked", paused: "inactive", stopping: "finishing", done: "done" };
-const cards = new Map(); // chain id -> card element (kept, so previews do not reload on every poll)
+// chain id -> card element. A card stays where it is in the DOM for good: moving an iframe reloads it, so the order
+// on screen comes from CSS `order` alone.
+const cards = new Map();
 
 async function api(path, body) {
   const res = await fetch(path, body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -34,8 +36,9 @@ function card(chain) {
     );
     node.querySelector(".switch").addEventListener("click", (e) => e.stopPropagation());
     node.querySelector(".weight").addEventListener("click", (e) => e.stopPropagation());
-    node.addEventListener("click", () => openGraph(chain.id, `${node.dataset.project} · ${node.dataset.title}`));
+    node.addEventListener("click", () => navigate(`/chains/${chain.id}`));
     cards.set(chain.id, node);
+    $("chains").append(node);
   }
   node.dataset.weight = chain.weight;
   node.dataset.project = chain.project;
@@ -97,22 +100,51 @@ function render(state) {
   $("points").textContent = state.total_points;
   $("pointsText").textContent = `${state.points_in_use} in use`;
   renderApprovals(state.approvals, state.chains);
-  $("chains").replaceChildren(...state.chains.map(card));
+  state.chains.forEach((chain, index) => (card(chain).style.order = index));
+  titles = new Map(state.chains.map((c) => [c.id, `${c.project} · ${c.title}`]));
+  route();
 }
 
-function openGraph(id, title) {
-  $("overlayTitle").textContent = title;
-  $("overlayFrame").src = graphUrl(id, false);
-  $("overlay").hidden = false;
+// --- routes: / is the list, /chains/<id> the chain's graph full screen --------------------------------
+
+let titles = new Map();
+let shown = null; // chain id whose graph is open
+
+function navigate(path) {
+  history.pushState(null, "", path);
+  route();
 }
 
-function closeGraph() {
-  $("overlay").hidden = true;
-  $("overlayFrame").src = "about:blank";
+function route() {
+  const match = location.pathname.match(/^\/chains\/([\w-]+)$/);
+  const id = match ? match[1] : null;
+  $("overlay").hidden = !id;
+  document.title = id ? `${titles.get(id) || id} · hustlebot` : "hustlebot";
+  if (id) $("overlayTitle").textContent = titles.get(id) || id;
+  if (id === shown) return;
+  shown = id;
+  // A fresh iframe each time: navigating an existing one would add entries to the browser history.
+  $("overlayFrame").replaceWith(graphFrame(id));
 }
 
-$("overlayClose").addEventListener("click", closeGraph);
-document.addEventListener("keydown", (e) => e.key === "Escape" && closeGraph());
+function graphFrame(id) {
+  const frame = document.createElement("iframe");
+  frame.id = "overlayFrame";
+  frame.title = "Chain graph";
+  if (!id) return frame;
+  frame.src = graphUrl(id, false);
+  // Escape inside the graph page (same origin) closes it too
+  frame.addEventListener("load", () => frame.contentWindow.addEventListener("keydown", closeOnEscape));
+  return frame;
+}
+
+function closeOnEscape(e) {
+  if (e.key === "Escape" && shown) navigate("/");
+}
+
+window.addEventListener("popstate", route);
+$("overlayClose").addEventListener("click", () => navigate("/"));
+document.addEventListener("keydown", closeOnEscape);
 document.querySelectorAll("[data-points]").forEach((b) =>
   b.addEventListener("click", () => api("/api/settings", { total_points: Number($("points").textContent) + Number(b.dataset.points) }).then(render))
 );

@@ -84,6 +84,8 @@ def make_handler(state: State, engine: Path):
 
         def do_GET(self) -> None:
             path = self.path.split("?", 1)[0]
+            if re.fullmatch(r"/chains/[\w-]+", path):
+                path = "/"  # a route of the dashboard: the page itself, app.js shows the graph
             if path in STATIC:
                 file = DASHBOARD / STATIC[path]
                 return self._send(200, file.read_bytes(), TYPES[file.suffix])

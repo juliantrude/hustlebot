@@ -1,7 +1,7 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>hustlebot</title>
-<link rel="stylesheet" href="app.css">
+<link rel="stylesheet" href="/app.css">
 </head><body><div class="wrap">
  <header class="top">
   <h1>hustlebot</h1>
@@ -26,8 +26,8 @@
 </div>
 
 <div id="overlay" hidden>
- <div class="overlay-bar"><span id="overlayTitle"></span><button type="button" id="overlayClose" aria-label="close">✕</button></div>
- <iframe id="overlayFrame" title="Chain graph"></iframe>
+ <div class="overlay-bar"><button type="button" id="overlayClose" class="back">← Chains</button><span id="overlayTitle"></span></div>
+ <iframe id="overlayFrame" title="Chain graph"></iframe><!-- replaced per chain by app.js -->
 </div>
 
 <template id="chainCard">
@@ -45,5 +45,5 @@
   <div class="preview"><iframe tabindex="-1" title="graph preview" loading="lazy"></iframe></div>
  </article>
 </template>
-<script src="app.js"></script>
+<script src="/app.js"></script>
 </body></html>

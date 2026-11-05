@@ -1,0 +1,114 @@
+"""A fake clock for the mock: sessions start, run and finish so the dashboard has something to show.
+
+One tick stands for one minute of scheduler time and passes every TICK_SECONDS. Each tick finished sessions
+free their points, then the scheduler hands free points to the active chain that is furthest below its share
+(work-conserving: a chain may borrow points no one else can use). Every chain keeps the last HISTORY ticks of
+what ran in it, for the trail on its card. A chain that is done starts over after a pause, so the demo never
+runs dry.
+"""
+
+from __future__ import annotations
+
+import random
+import threading
+import time
+from dataclasses import dataclass
+
+from .model import POINTS, Chain, shares
+
+TICK_SECONDS = 2.0
+HISTORY = 60
+RESTART_AFTER = 6  # ticks a finished chain rests before its increments open again
+DURATION = {"haiku": (2, 5), "sonnet": (3, 8), "opus": (5, 12), "fable": (8, 16)}  # ticks per session
+
+
+@dataclass
+class Session:
+    chain: str
+    increment: str
+    model: str
+    started: int  # tick
+    ends: int  # tick
+
+
+class Sim:
+    def __init__(self, chains: list[Chain], total_points: int, seed: int = 7) -> None:
+        self.chains = chains
+        self.total_points = total_points
+        self.tick = 0
+        self.sessions: list[Session] = []
+        self.history: dict[str, list[list[dict]]] = {c.id: [] for c in chains}
+        self.events: list[dict] = []  # started / done, newest last
+        self.rest: dict[str, int] = {}
+        self.rng = random.Random(seed)
+        self.lock = threading.Lock()
+        # the mock's "running" increments become real sessions, half-way through
+        for chain in chains:
+            for inc in chain.running():
+                low, high = DURATION[inc.model]
+                self.sessions.append(Session(chain.id, inc.id, inc.model, -low, self.rng.randint(1, high - low)))
+
+    def running(self, chain_id: str) -> list[Session]:
+        return [s for s in self.sessions if s.chain == chain_id]
+
+    def points_in_use(self, chain_id: str | None = None) -> int:
+        return sum(POINTS[s.model] for s in self.sessions if chain_id is None or s.chain == chain_id)
+
+    def step(self) -> None:
+        with self.lock:
+            self.tick += 1
+            self._finish()
+            self._restart()
+            self._schedule()
+            for chain in self.chains:
+                column = [{"model": s.model, "points": POINTS[s.model], "increment": s.increment} for s in self.running(chain.id)]
+                self.history[chain.id] = (self.history[chain.id] + [column])[-HISTORY:]
+            self.events = [e for e in self.events if e["tick"] > self.tick - 5]
+
+    def _finish(self) -> None:
+        for s in [s for s in self.sessions if s.ends <= self.tick]:
+            self.sessions.remove(s)
+            chain = next(c for c in self.chains if c.id == s.chain)
+            next(i for i in chain.increments if i.id == s.increment).state = "done"
+            self.events.append({"tick": self.tick, "kind": "done", "chain": s.chain, "increment": s.increment, "model": s.model})
+
+    def _restart(self) -> None:
+        for chain in self.chains:
+            if not chain.active or not all(i.state == "done" for i in chain.increments):
+                continue
+            self.rest[chain.id] = self.rest.get(chain.id, 0) + 1
+            if self.rest[chain.id] >= RESTART_AFTER:
+                del self.rest[chain.id]
+                for inc in chain.increments:
+                    inc.state = "open"
+
+    def _schedule(self) -> None:
+        share = shares(self.chains, self.total_points)
+        while True:
+            free = self.total_points - self.points_in_use()
+            # neediest first: lowest use relative to share
+            candidates = sorted(
+                (c for c in self.chains if c.id in share and c.ready()),
+                key=lambda c: self.points_in_use(c.id) / share[c.id],
+            )
+            started = False
+            for chain in candidates:
+                inc = next((i for i in chain.ready() if POINTS[i.model] <= free), None)
+                if inc is None:
+                    continue
+                inc.state = "running"
+                low, high = DURATION[inc.model]
+                self.sessions.append(Session(chain.id, inc.id, inc.model, self.tick, self.tick + self.rng.randint(low, high)))
+                self.events.append({"tick": self.tick, "kind": "started", "chain": chain.id, "increment": inc.id, "model": inc.model})
+                started = True
+                break
+            if not started:
+                return
+
+    def run_forever(self) -> None:
+        def loop() -> None:
+            while True:
+                time.sleep(TICK_SECONDS)
+                self.step()
+
+        threading.Thread(target=loop, daemon=True).start()

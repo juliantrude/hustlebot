@@ -26,7 +26,6 @@ function card(chain) {
   let node = cards.get(chain.id);
   if (!node) {
     node = $("chainCard").content.firstElementChild.cloneNode(true);
-    node.querySelector(".preview iframe").src = graphUrl(chain.id, true);
     node.querySelector(".active").addEventListener("change", (e) => api(`/api/chains/${chain.id}`, { active: e.target.checked }).then(render));
     node.querySelectorAll("[data-weight]").forEach((b) =>
       b.addEventListener("click", () => {
@@ -39,6 +38,14 @@ function card(chain) {
     node.addEventListener("click", () => navigate(`/chains/${chain.id}`));
     cards.set(chain.id, node);
     $("chains").append(node);
+  }
+  // the preview reloads only when an increment changed state: reloading an iframe flickers
+  if (node.dataset.graph !== chain.graph_version) {
+    node.dataset.graph = chain.graph_version;
+    const frame = node.querySelector(".preview iframe");
+    // replace(), not src: a new src would add an entry to the browser history
+    if (frame.contentWindow && frame.getAttribute("src")) frame.contentWindow.location.replace(graphUrl(chain.id, true));
+    else frame.src = graphUrl(chain.id, true);
   }
   node.dataset.weight = chain.weight;
   node.dataset.project = chain.project;
@@ -54,18 +61,11 @@ function card(chain) {
   node.querySelector(".title").textContent = chain.title;
   node.querySelector(".progress i").style.width = `${(100 * chain.done) / chain.total}%`;
   node.querySelector(".count").textContent = `${chain.done} / ${chain.total} increments`;
-  const agents = node.querySelector(".agents");
-  agents.replaceChildren(
-    ...[...chain.sessions]
-      .sort((a, b) => a.model.localeCompare(b.model))
-      .map((s) => {
-        const a = document.createElement("span");
-        a.className = `agent ${s.model}`;
-        a.textContent = s.model[0].toUpperCase();
-        a.title = `${s.model} · increment ${s.increment}`;
-        return a;
-      })
-  );
+  const load = node.querySelector(".load");
+  load.title = chain.sessions.length
+    ? chain.sessions.map((s) => `${s.increment} · ${s.model} · ${s.points} pts`).join("\n")
+    : "no session running";
+  Load.update(chain.id, load, chain);
   return node;
 }
 
@@ -93,6 +93,7 @@ function renderApprovals(list, chains) {
 }
 
 function render(state) {
+  Load.global(state);
   bar($("usageSession"), state.usage.session.percent);
   $("usageSessionText").textContent = `${state.usage.session.percent}% · resets ${state.usage.session.resets}`;
   bar($("usageWeek"), state.usage.week.percent);
@@ -151,4 +152,4 @@ document.querySelectorAll("[data-points]").forEach((b) =>
 
 const refresh = () => api("/api/state").then(render);
 refresh();
-setInterval(refresh, 5000);
+setInterval(refresh, 1000);

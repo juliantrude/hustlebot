@@ -14,9 +14,10 @@ from pathlib import Path
 from . import mock
 from .graph import graph_doc
 from .model import POINTS, shares
+from .sim import TICK_SECONDS, Sim
 
 DASHBOARD = Path(__file__).resolve().parent.parent / "dashboard"
-STATIC = {"/": "index.html", "/app.js": "app.js", "/app.css": "app.css"}
+STATIC = {"/": "index.html", "/app.js": "app.js", "/load.js": "load.js", "/app.css": "app.css"}
 TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css"}
 
 
@@ -35,17 +36,27 @@ class State:
         self.total_points = 20
         self.chains = mock.chains()
         self.approvals = list(mock.APPROVALS)
+        self.sim = Sim(self.chains, self.total_points)
+        self.sim.run_forever()
 
     def chain(self, chain_id: str):
         return next((c for c in self.chains if c.id == chain_id), None)
 
     def summary(self) -> dict:
+        with self.sim.lock:
+            return self._summary()
+
+    def _summary(self) -> dict:
+        sim = self.sim
         share = shares(self.chains, self.total_points)
         order = sorted(self.chains, key=lambda c: (not c.active, -c.weight, c.title))
         return {
             "total_points": self.total_points,
             "points_in_use": sum(c.points_in_use() for c in self.chains),
             "model_points": POINTS,
+            "tick": sim.tick,
+            "tick_seconds": TICK_SECONDS,
+            "events": sim.events,
             "usage": mock.USAGE,
             "approvals": self.approvals,
             "chains": [
@@ -60,7 +71,12 @@ class State:
                     "total": len(c.increments),
                     "share": round(share.get(c.id, 0), 1),
                     "points_in_use": c.points_in_use(),
-                    "sessions": [{"increment": i.id, "model": i.model} for i in c.running()],
+                    "sessions": [
+                        {"increment": s.increment, "model": s.model, "points": POINTS[s.model], "started": s.started, "ends": s.ends}
+                        for s in sim.running(c.id)
+                    ],
+                    "history": sim.history[c.id],
+                    "graph_version": "".join(i.state[0] for i in c.increments),
                 }
                 for c in order
             ],
@@ -102,7 +118,7 @@ def make_handler(state: State, engine: Path):
             length = int(self.headers.get("Content-Length") or 0)
             body = json.loads(self.rfile.read(length) or b"{}")
             if self.path == "/api/settings":
-                state.total_points = max(1, int(body.get("total_points", state.total_points)))
+                state.total_points = state.sim.total_points = max(1, int(body.get("total_points", state.total_points)))
                 return self._json(state.summary())
             match = re.fullmatch(r"/api/chains/([\w-]+)", self.path)
             if match and (chain := state.chain(match.group(1))):

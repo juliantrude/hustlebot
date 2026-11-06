@@ -48,6 +48,24 @@ loop). Terms here are canonical; use them in code, docs and skills.
   cross-service **epics** (umbrella items spanning multiple repos). Not an
   execution source: the Executor never pulls from it directly (see ADR 0002).
 
+## Multi-chain master (proposed, ADR 0008–0013)
+
+- **Master** — the one local program per machine that owns all timers, reads the usage,
+  and starts every session. Not an agent.
+- **Chain** — one goal worked on as a graph of increments; several chains run at once,
+  possibly several per project.
+- **Chain graph** — the dependency graph (DAG) of a chain's increments, each with its own
+  model. Lives in the project repo.
+- **Session** — one headless Claude Code process the master starts for exactly one
+  increment, in its own worktree.
+- **Session points** — what a running session costs: Haiku 1, Sonnet 2, Opus 4, Fable 8.
+  The user sets the total for the machine.
+- **Weight** — a chain's `fr`: its share of the session points among the active chains.
+- **Share** — the points a weight guarantees right now; unused share goes to the others,
+  overdrawn share becomes a deficit.
+- **Control view / cinema view** — the dashboard to steer (`/`) and the control-free
+  always-on view (`/cinema`).
+
 ## Notes
 
 - The skills repo is itself hustled (it has its own `GOAL.md`); do not confuse

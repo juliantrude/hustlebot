@@ -1,6 +1,8 @@
 :root{color-scheme:dark;--haiku:#4cc9d8;--sonnet:#d8a548;--opus:#a78bfa;--fable:#e46fb8}
 body{font:15px/1.5 system-ui,sans-serif;margin:0;background:#0f1115;color:#e6e6e6}
-.wrap{max-width:1640px;margin:0 auto;padding:24px}
+.wrap{width:80vw;margin:0 auto;padding:24px 0}
+@media(max-width:2200px){.wrap{width:90vw}}
+@media(max-width:1100px){.wrap{width:auto;padding:16px 12px}}
 h1{font-size:15px;font-weight:600;color:#8a94a6;letter-spacing:.04em;text-transform:uppercase;margin:0}
 h2{font-size:12px;font-weight:600;color:#8a94a6;letter-spacing:.04em;text-transform:uppercase;margin:26px 0 10px}
 .muted{color:#6b7688;font-size:12px}
@@ -21,7 +23,7 @@ button:hover{background:#24304a}
 #approvalList li .yes{border-color:#2f5c3a;color:#5ee08a}
 #approvalList li .no{border-color:#5c2f2f;color:#f07a7a}
 
-.chain{position:relative;display:grid;grid-template-columns:44px 74px 88px 90px minmax(120px,1fr) 100px 240px 200px;gap:14px;align-items:center;
+.chain{position:relative;display:grid;grid-template-columns:44px 74px 88px 90px minmax(120px,1fr) 110px minmax(240px,1.3fr) 220px;gap:14px;align-items:center;
   background:#171a21;border:1px solid #232833;border-radius:10px;padding:10px 14px;margin-bottom:10px;cursor:pointer}
 .chain:hover{border-color:#34405a}
 .chain.inactive{opacity:.55}
@@ -53,16 +55,16 @@ button:hover{background:#24304a}
   .chain .project,.chain .load{display:none}.chain .preview{grid-column:1/-1}}
 #chains{display:flex;flex-direction:column}
 .back{width:auto;height:30px;padding:0 14px;font-size:13px}
-.load{width:240px;height:64px;display:block}
+.load{width:100%;height:64px;display:block}
 
 /* energy core and its flows into the chains */
-.flow{display:grid;grid-template-columns:300px 1fr;align-items:stretch}
+.flow{display:grid;grid-template-columns:380px 1fr;align-items:stretch}
 .core-col{position:relative;min-height:420px}
 #flow{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
-.core{position:absolute;left:90px;width:120px;height:120px;margin-left:-60px;margin-top:-60px;display:grid;place-content:center;text-align:center}
+.core{position:absolute;left:150px;width:120px;height:120px;margin-left:-60px;margin-top:-60px;display:grid;place-content:center;text-align:center}
 .core-pct{font-size:30px;font-weight:700;color:#fff;text-shadow:0 0 12px rgba(120,200,255,.9);line-height:1}
 .core-label{font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:#cfe6ff;opacity:.85;margin-top:4px}
 .core-week{font-size:10px;color:#9fb0c8;margin-top:2px}
-.core-points{position:absolute;left:90px;transform:translateX(-50%);text-align:center;white-space:nowrap}
+.core-points{position:absolute;left:150px;transform:translateX(-50%);text-align:center;white-space:nowrap}
 .core-points .stepper{justify-content:center}
 @media(max-width:1100px){.flow{grid-template-columns:1fr}.core-col{min-height:260px}}

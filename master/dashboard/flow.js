@@ -6,7 +6,7 @@
 
 const Flow = (() => {
   const MODEL = { haiku: "#4cc9d8", sonnet: "#d8a548", opus: "#a78bfa", fable: "#e46fb8" };
-  const CORE = { x: 90, r: 52 }; // centre x and radius of the orb, in the core column
+  const CORE = { x: 150, r: 52 }; // centre x and radius of the orb: far enough in for the halo (2.6 r) to fit
   const MAX_POINTS = 40; // points at which the core burns at full brightness
   const TRUNK_MAX = 96; // beam thickness at the core when all points are shared out
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;

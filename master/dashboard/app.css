@@ -68,3 +68,6 @@ button:hover{background:#24304a}
 .core-points{position:absolute;left:150px;transform:translateX(-50%);text-align:center;white-space:nowrap}
 .core-points .stepper{justify-content:center}
 @media(max-width:1100px){.flow{grid-template-columns:1fr}.core-col{min-height:260px}}
+.top{justify-content:space-between}
+.cinema-link{color:#8a94a6;font-size:13px;text-decoration:none;border:1px solid #2a3242;border-radius:6px;padding:4px 10px}
+.cinema-link:hover{color:#e6e6e6;border-color:#5ab0f0}

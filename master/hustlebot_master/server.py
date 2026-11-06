@@ -17,7 +17,8 @@ from .model import POINTS, shares
 from .sim import TICK_SECONDS, Sim
 
 DASHBOARD = Path(__file__).resolve().parent.parent / "dashboard"
-STATIC = {"/": "index.html", "/app.js": "app.js", "/load.js": "load.js", "/flow.js": "flow.js", "/app.css": "app.css"}
+STATIC = {"/": "index.html", "/app.js": "app.js", "/load.js": "load.js", "/flow.js": "flow.js", "/app.css": "app.css",
+          "/cinema": "cinema.html", "/cinema.js": "cinema.js"}
 TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css"}
 
 
@@ -77,6 +78,7 @@ class State:
                     ],
                     "history": sim.history[c.id],
                     "graph_version": "".join(i.state[0] for i in c.increments),
+                    "increments": [{"id": i.id, "after": i.after, "state": i.state, "model": i.model} for i in c.increments],
                 }
                 for c in order
             ],

@@ -38,6 +38,8 @@ def chains() -> list[Chain]:
                 _inc("H", "systemd user unit", "haiku", state="running"),
                 _inc("I", "Scheduler: weights + deficit round robin", "fable", "D F"),
                 _inc("J", "End-to-end run over two projects", "opus", "I"),
+                _inc("K", "Master README", "haiku", "A"),
+                _inc("L", "Dashboard design pass", "sonnet", "G"),
             ],
         ),
         Chain(
@@ -52,6 +54,9 @@ def chains() -> list[Chain]:
                 _inc("C", "Offline queue on the client", "sonnet", "A", "running"),
                 _inc("D", "Integration tests", "haiku", "B C"),
                 _inc("E", "Changelog + docs", "haiku", "D"),
+                _inc("F", "Push notifications", "sonnet", "A"),
+                _inc("G", "Sync metrics", "haiku"),
+                _inc("H", "Load test", "opus", "D F"),
             ],
         ),
         Chain(
@@ -95,11 +100,6 @@ def chains() -> list[Chain]:
         ),
     ]
 
-
-USAGE = {
-    "session": {"percent": 46, "resets": "today 14:20"},
-    "week": {"percent": 63, "resets": "Mon 09:00"},
-}
 
 APPROVALS = [
     {

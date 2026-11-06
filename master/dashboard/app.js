@@ -12,11 +12,6 @@ async function api(path, body) {
   return res.json();
 }
 
-function bar(el, percent) {
-  el.style.width = `${Math.min(100, percent)}%`;
-  el.parentElement.classList.toggle("hot", percent >= 80);
-}
-
 function graphUrl(id, mini) {
   const data = encodeURIComponent(`/api/chains/${id}/graph.json`);
   return `/engine/?data=${data}${mini ? "&view=mini" : ""}`;
@@ -94,16 +89,16 @@ function renderApprovals(list, chains) {
 
 function render(state) {
   Load.global(state);
-  bar($("usageSession"), state.usage.session.percent);
-  $("usageSessionText").textContent = `${state.usage.session.percent}% · resets ${state.usage.session.resets}`;
-  bar($("usageWeek"), state.usage.week.percent);
-  $("usageWeekText").textContent = `${state.usage.week.percent}% · resets ${state.usage.week.resets}`;
+  $("corePct").textContent = `${Math.round(state.usage.session.percent)}%`;
+  $("coreWeek").textContent = `week ${Math.round(state.usage.week.percent)}%`;
+  $("core").title = `5h session ${state.usage.session.percent}%, resets ${state.usage.session.resets}\nweek ${state.usage.week.percent}%, resets ${state.usage.week.resets}`;
   $("points").textContent = state.total_points;
-  $("pointsText").textContent = `${state.points_in_use} in use`;
+  $("pointsText").textContent = `${state.points_in_use} of ${state.total_points} session points burning`;
   renderApprovals(state.approvals, state.chains);
   state.chains.forEach((chain, index) => (card(chain).style.order = index));
   titles = new Map(state.chains.map((c) => [c.id, `${c.project} · ${c.title}`]));
   route();
+  Flow.update(state, cards);
 }
 
 // --- routes: / is the list, /chains/<id> the chain's graph full screen --------------------------------

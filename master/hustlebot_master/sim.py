@@ -41,6 +41,8 @@ class Sim:
         self.events: list[dict] = []  # started / done, newest last
         self.rest: dict[str, int] = {}
         self.rng = random.Random(seed)
+        # usage in percent of the 5h and the week window; burns with the points in use, the 5h window resets at 100
+        self.usage = {"session": {"percent": 46.0, "resets": "in 2h 40m"}, "week": {"percent": 63.0, "resets": "Mon 09:00"}}
         self.lock = threading.Lock()
         # the mock's "running" increments become real sessions, half-way through
         for chain in chains:
@@ -60,6 +62,7 @@ class Sim:
             self._finish()
             self._restart()
             self._schedule()
+            self._burn()
             for chain in self.chains:
                 column = [{"model": s.model, "points": POINTS[s.model], "increment": s.increment} for s in self.running(chain.id)]
                 self.history[chain.id] = (self.history[chain.id] + [column])[-HISTORY:]
@@ -104,6 +107,13 @@ class Sim:
                 break
             if not started:
                 return
+
+    def _burn(self) -> None:
+        used = self.points_in_use()
+        self.usage["session"]["percent"] = round(self.usage["session"]["percent"] + used * 0.04, 1)
+        self.usage["week"]["percent"] = round(min(100.0, self.usage["week"]["percent"] + used * 0.004), 1)
+        if self.usage["session"]["percent"] >= 100:
+            self.usage["session"]["percent"] = 0.0
 
     def run_forever(self) -> None:
         def loop() -> None:

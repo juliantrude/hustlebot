@@ -5,15 +5,6 @@
 </head><body><div class="wrap">
  <header class="top">
   <h1>hustlebot</h1>
-  <div class="meters">
-   <div class="meter"><div class="k">Session (5h)</div><div class="bar"><i id="usageSession"></i></div><div class="muted" id="usageSessionText"></div></div>
-   <div class="meter"><div class="k">Week</div><div class="bar"><i id="usageWeek"></i></div><div class="muted" id="usageWeekText"></div></div>
-   <div class="meter points">
-    <div class="k">Session points</div>
-    <div class="stepper"><button type="button" data-points="-1" aria-label="fewer points">−</button><span id="points"></span><button type="button" data-points="1" aria-label="more points">+</button></div>
-    <div class="muted" id="pointsText"></div>
-   </div>
-  </div>
  </header>
 
  <section id="approvals" hidden>
@@ -22,7 +13,21 @@
  </section>
 
  <h2>Chains</h2>
- <div id="chains"></div>
+ <div class="flow">
+  <div class="core-col">
+   <canvas id="flow" aria-hidden="true"></canvas>
+   <div class="core" id="core">
+    <div class="core-pct" id="corePct"></div>
+    <div class="core-label">5h session</div>
+    <div class="core-week" id="coreWeek"></div>
+   </div>
+   <div class="core-points">
+    <div class="stepper"><button type="button" data-points="-1" aria-label="fewer points">−</button><span id="points"></span><button type="button" data-points="1" aria-label="more points">+</button></div>
+    <div class="muted" id="pointsText"></div>
+   </div>
+  </div>
+  <div id="chains"></div>
+ </div>
 </div>
 
 <div id="overlay" hidden>
@@ -46,5 +51,6 @@
  </article>
 </template>
 <script src="/load.js"></script>
+<script src="/flow.js"></script>
 <script src="/app.js"></script>
 </body></html>

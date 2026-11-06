@@ -17,7 +17,7 @@ from .model import POINTS, shares
 from .sim import TICK_SECONDS, Sim
 
 DASHBOARD = Path(__file__).resolve().parent.parent / "dashboard"
-STATIC = {"/": "index.html", "/app.js": "app.js", "/load.js": "load.js", "/app.css": "app.css"}
+STATIC = {"/": "index.html", "/app.js": "app.js", "/load.js": "load.js", "/flow.js": "flow.js", "/app.css": "app.css"}
 TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css"}
 
 
@@ -57,7 +57,7 @@ class State:
             "tick": sim.tick,
             "tick_seconds": TICK_SECONDS,
             "events": sim.events,
-            "usage": mock.USAGE,
+            "usage": sim.usage,
             "approvals": self.approvals,
             "chains": [
                 {

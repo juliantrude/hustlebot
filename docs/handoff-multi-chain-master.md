@@ -13,7 +13,7 @@ implementation (recommended: hustlebot itself, Opus for the design-heavy increme
 | Frontend prototype (accepted by the user) | `master/` — `python3 -m hustlebot_master.server --mock` from `master/`, then http://127.0.0.1:8765/ and `/cinema` |
 | Usage-over-pty prototype | `master/prototypes/usage_pty.py` (`uv run --with pexpect --with pyte python usage_pty.py <project>`) |
 | Worktree-session prototype | `master/prototypes/worktree_session.sh <scratch-dir>` |
-| Graph rendering | graph-engine 1.1.0 (`../graph-engine`, pushed to `main`, **not yet tagged** `v1.1.0`): rootless graphs, look `active`, `?view=mini`, `testing.render(view="mini")` |
+| Graph rendering | graph-engine 1.1.0 (`../graph-engine`, tagged `v1.1.0`): rootless graphs, look `active`, `?view=mini`, `testing.render(view="mini")` |
 | Design files | self-hosted Penpot (`~/Work/penpot`, README there; start with `docker compose -p penpot up -d`); older copy in Figma. The prototype wins where they differ. |
 
 ## What the prototype already defines
@@ -76,7 +76,7 @@ implementation (recommended: hustlebot itself, Opus for the design-heavy increme
 6. Master service: systemd user unit, API behind the existing views; remove mock and
    simulation; remove per-project scheduler and monitors.
 7. Approvals and self-restructuring of graphs.
-8. Migration of existing chains; tag graph-engine `v1.1.0` and pin it.
+8. Migration of existing chains; pin graph-engine `v1.1.0`.
 
 ## Lessons from the prototypes
 

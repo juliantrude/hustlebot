@@ -178,3 +178,34 @@ the tasks that can run in parallel, and hand those to subagents.
   (`modelUsage`, incl. cache read/creation) and `total_cost_usd`.
 - Runner detail: start `claude -p` with stdin closed, else it waits 3 s for
   piped input.
+
+## Grilling rounds 6–12 (2026-11-07) — open questions of the handoff settled
+
+Recorded as ADR 0008–0013 (revised) and the new ADR 0014 and 0015. In short:
+
+- **Names:** chain → **hustle**, the DAG → **plan**, a session → **hustlebot** (modes
+  worker / overseer), the service → **hustlemaster**, the one user skill → **`/hustle`**.
+- **Plan ownership:** planned in the repo, submitted to the hustlemaster, owned and
+  versioned there; no plan files and no `GOAL.md` in repos. Each increment has a
+  self-contained prompt; the hustle has a brief. One hustle = one repo.
+- **MCP** (not a CLI) served by the hustlemaster on localhost; rights per role;
+  approvals, weights, budget and `allow_fable` only in the dashboard. Internal skills only
+  in hustlebots (`--plugin-dir`); interactive sessions get `/hustle` and the MCP entry.
+- **Overseer:** started by the hustlemaster, works in the project; planned (acceptance at
+  the end, milestones) or on events (two failures, too-big, unresolved conflict,
+  proposals). Always the strongest allowed model.
+- **Failures:** resume twice per increment, then the overseer; the rest of the hustle
+  keeps going.
+- **Approvals:** upgrade beyond the hustle's share, growth > 25 %; global auto-approve
+  (off / up to % / all). No weight requests. A new hustle arrives inactive; first
+  activation = confirmation.
+- **Scheduling:** no deficit, no throttling; free points go to the hustle furthest below
+  its share.
+- **Thresholds:** user sliders on the core's rings (5h stop, week target at reset with a
+  linear target line); cinema shows only the marks and only active hustles.
+- **Sizing:** ≤ 600k context per planned increment (guideline), ≤ 1M for runtime splits;
+  one task per increment. Fable only when `allow_fable` is on.
+- **Runtime:** a dedicated VM; dashboard behind a reverse proxy with token login; no
+  notifications for now; push per project, only by the hustlemaster.
+- **Migration:** `/hustle` converts a running sequential `GOAL.md`; no side-by-side
+  operation. Charter mode later, guided by a `VISION.md`.

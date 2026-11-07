@@ -48,21 +48,36 @@ loop). Terms here are canonical; use them in code, docs and skills.
   cross-service **epics** (umbrella items spanning multiple repos). Not an
   execution source: the Executor never pulls from it directly (see ADR 0002).
 
-## Multi-chain master (proposed, ADR 0008–0013)
+## hustlebot v2 (proposed, ADR 0008–0015)
 
-- **Master** — the one local program per machine that owns all timers, reads the usage,
-  and starts every session. Not an agent.
-- **Chain** — one goal worked on as a graph of increments; several chains run at once,
-  possibly several per project.
-- **Chain graph** — the dependency graph (DAG) of a chain's increments, each with its own
-  model. Lives in the project repo.
-- **Session** — one headless Claude Code process the master starts for exactly one
-  increment, in its own worktree.
-- **Session points** — what a running session costs: Haiku 1, Sonnet 2, Opus 4, Fable 8.
+The v2 terms replace "chain", "Executor" and "Plan in `GOAL.md`" once the hustlemaster
+runs. Avoid "chain" and "graph" for the unit of work.
+
+- **hustlebot** — the plugin, and also one headless Claude Code session working in a
+  project on behalf of the hustlemaster. Runs in one of two modes, worker or overseer.
+- **hustlemaster** — the one background service per machine that owns all timers, reads
+  the usage, stores every plan and starts every hustlebot. Not an agent.
+- **`/hustle`** — the only skill a user calls: plans a hustle and submits it.
+- **Hustle** — one goal in one repo, worked on as a plan of increments; several run at
+  once, possibly several per project.
+- **Brief** — a hustle's north star, Definition of Done and agreements. Replaces `GOAL.md`.
+- **Plan** — the dependency graph (DAG) of a hustle's increments. Owned by the
+  hustlemaster, versioned in its database.
+- **Increment** — one task in a plan: id, title, self-contained prompt, dependencies,
+  model, mode.
+- **Dependency** — an edge in the plan: one increment needs another's result or files.
+- **Worker** — the hustlebot mode that implements one increment.
+- **Overseer** — the privileged hustlebot mode that may change its hustle's plan; planned
+  (acceptance, milestones) or started on events (failures, too-big, conflicts).
+- **Acceptance increment** — the overseer increment at the end of every plan that checks
+  the Definition of Done.
+- **Session points** — what a running hustlebot costs: Haiku 1, Sonnet 2, Opus 4, Fable 8.
   The user sets the total for the machine.
-- **Weight** — a chain's `fr`: its share of the session points among the active chains.
+- **Weight** — a hustle's `fr`: its share of the session points among the active hustles.
 - **Share** — the points a weight guarantees right now; unused share goes to the others,
-  overdrawn share becomes a deficit.
+  free points go to the hustle furthest below its share.
+- **Approval** — the user's yes to a model upgrade beyond the share or to growth over
+  25 %; can be automatic (auto-approve).
 - **Control view / cinema view** — the dashboard to steer (`/`) and the control-free
   always-on view (`/cinema`).
 

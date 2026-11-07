@@ -135,11 +135,13 @@ class Gate:
             answer["approval"] = {"reasons": pending.reasons, "waiting": pending.waiting}
         return answer
 
-    def submit_hustle(self, project: str, title: str, brief: str, increments: list[Increment]) -> str:
+    def submit_hustle(self, project: str, title: str, brief: str, increments: list[Increment], *,
+                      push: bool | None = None, verify: str | None = None) -> str:
         self._right("submit_hustle")
         if not Path(project).is_absolute():
             raise ValueError("project must be an absolute path to the repository")
-        return self.store.submit(project, title, brief, increments, author=self.caller.author)
+        return self.store.submit(project, title, brief, increments, author=self.caller.author, push=push,
+                                 verify=verify)
 
     def read_settings(self) -> dict:
         self._right("read_settings")

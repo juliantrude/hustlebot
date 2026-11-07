@@ -46,3 +46,26 @@ happens in the repo, by the project's Claude Code; execution belongs to the hust
   Claude in the project for structural changes, which it makes over MCP. A running
   increment finishes; a changed version applies to the next attempt, a deleted one has
   its result discarded.
+
+### As built (2026-11-07, `master/user-plugin/`, `submit_hustle`)
+
+- **`/hustle` beside the old loop.** The user-facing plugin is `master/user-plugin/`
+  (named `hustlebot`, skill `skills/hustle/SKILL.md`), not the repository root. The root
+  plugin still carries the old loop (`/hustle` → `GOAL.md` chain, `/advance-goal`), which
+  drives work until the migration; replacing its `skills/hustle/` now would strand the
+  running chains. At the migration the marketplace entry points at `master/user-plugin/`
+  (or its contents move to the root) and the old skills go. Until then both are named
+  `hustlebot`; a session sees the v2 skill only when given `--plugin-dir master/user-plugin`.
+- **`submit_hustle` also takes `push` and `verify`.** ADR 0011 has `/hustle` settle both
+  while planning, and they are project settings, not dashboard-only ones, so the
+  interactive role sets them with the submission (`Store.submit(push=, verify=)`, applied
+  only if the plan passes; left out, the project keeps what it has).
+- The skill has three entries: a new goal (grill, cut, show, submit), converting a
+  sequential `GOAL.md` (checked increments are left out, the old loop's per-run, git and
+  budget rules are dropped from the brief, the check and push are settled anyway, the file
+  stays untouched), and reading or changing an existing hustle via `change_plan`.
+- Verified with `master/prototypes/hustle_haiku.py`: real Haiku sessions, read-only tools
+  plus the interactive MCP tools, convert a fixture `GOAL.md` and plan a fixture goal; both
+  submitted valid plans with parallel independent increments and an Opus acceptance
+  overseer. The first conversion run dropped `verify` (it skipped the interview, where the
+  check is settled); §5 and §6 of the skill now say so explicitly.

@@ -155,6 +155,20 @@ def test_weight_and_project_switches(store):
     assert store.project("/repo").push is True
 
 
+
+def test_submit_settles_the_project_switches_only_when_given(store):
+    # `/hustle` settles push and the check while planning (ADR 0011); a later hustle without them keeps them
+    first = store.submit("/repo", "t", "b", valid_plan(), author="user", push=True, verify="make check")
+    assert (store.project("/repo").push, store.project("/repo").verify) == (True, "make check")
+    second = store.submit("/repo", "u", "b", valid_plan(), author="user")
+    assert (store.project("/repo").push, store.project("/repo").verify) == (True, "make check")
+    store.submit("/repo", "v", "b", valid_plan(), author="user", push=False)
+    assert (store.project("/repo").push, store.project("/repo").verify) == (False, "make check")
+    assert store.hustle(first) and store.hustle(second)  # rewriting the project row keeps its hustles
+    with pytest.raises(PlanError):
+        store.submit("/other", "w", "b", [inc("A")], author="user", push=True)
+    assert store.project("/other") is None  # a rejected plan settles nothing
+
 def test_settings_defaults_and_validation(store):
     assert store.settings() == Settings()
     assert Settings().total_points == 20 and Settings().allow_fable is False

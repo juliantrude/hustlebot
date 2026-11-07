@@ -149,6 +149,15 @@ def test_interactive_submits_reads_all_and_changes_any_plan(world):
     assert relative == ("error", "project must be an absolute path to the repository")
 
 
+def test_interactive_submit_settles_push_and_check(world):
+    store, _, endpoint, _, _ = world
+    (settled,) = session(endpoint, "interactive-token", (
+        "submit_hustle", {"project": "/repo/e", "title": "E", "brief": "b", "increments": spec(valid_plan()),
+                          "push": True, "verify": "uv run pytest -q"}))
+    assert store.hustle(settled["hustle"]).project == "/repo/e"
+    assert (store.project("/repo/e").push, store.project("/repo/e").verify) == (True, "uv run pytest -q")
+
+
 @pytest.mark.parametrize("role", ["worker", "overseer", "interactive"])
 def test_dashboard_only_actions_are_refused_to_every_role(world, role):
     store, tokens, endpoint, mine, _ = world

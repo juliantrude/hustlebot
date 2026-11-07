@@ -92,10 +92,14 @@ def build(store: Store, tokens: Tokens) -> MCPServer:
         incs = [i.increment() for i in increments]
         return json.dumps(run(lambda: gate(ctx).change_plan(incs, note, hustle_id or None)))
 
-    @server.tool(description="Submit a new hustle. It arrives paused; the user activates it in the dashboard.")
-    def submit_hustle(ctx: Context, project: str, title: str, brief: str, increments: list[IncrementSpec]) -> str:
+    @server.tool(description="Submit a new hustle. It arrives paused; the user activates it in the dashboard. "
+                             "push and verify are the project's settings for every hustle in it; leave them out "
+                             "to keep what the project has (new projects: no push, no check).")
+    def submit_hustle(ctx: Context, project: str, title: str, brief: str, increments: list[IncrementSpec],
+                      push: bool | None = None, verify: str | None = None) -> str:
         incs = [i.increment() for i in increments]
-        return json.dumps({"hustle": run(lambda: gate(ctx).submit_hustle(project, title, brief, incs))})
+        return json.dumps({"hustle": run(lambda: gate(ctx).submit_hustle(project, title, brief, incs, push=push,
+                                                                         verify=verify))})
 
     @server.tool(description="The hustlemaster's settings: total points, thresholds, allow_fable, auto-approve.")
     def read_settings(ctx: Context) -> str:

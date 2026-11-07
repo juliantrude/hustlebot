@@ -234,14 +234,18 @@ class Store:
 
     # hustles and plans
 
-    def submit(self, project: str, title: str, brief: str, increments: list[Increment], *, author: str) -> str:
-        """Store a new hustle. It arrives inactive; the first activation confirms it (ADR 0009)."""
+    def submit(self, project: str, title: str, brief: str, increments: list[Increment], *, author: str,
+               push: bool | None = None, verify: str | None = None) -> str:
+        """Store a new hustle. It arrives inactive; the first activation confirms it (ADR 0009). `push` and `verify`
+        are the project's settings, which `/hustle` settles while planning (ADR 0011); None keeps what is stored."""
         self._check(increments)
         hustle_id = uuid.uuid4().hex[:12]
         with self.db:
             self.db.execute("BEGIN")
             if self.project(project) is None:
                 self.db.execute("INSERT INTO projects (path) VALUES (?)", (project,))
+            if push is not None or verify is not None:
+                self.set_project(project, push=push, verify=verify)
             self.db.execute(
                 "INSERT INTO hustles (id, project, title, brief, created) VALUES (?, ?, ?, ?, ?)",
                 (hustle_id, project, title, brief, time.time()),

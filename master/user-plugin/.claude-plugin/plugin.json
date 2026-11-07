@@ -1,0 +1,8 @@
+{
+  "name": "hustlebot",
+  "version": "2.0.0-dev",
+  "description": "/hustle plans a long-running goal in this repository as a plan of increments and submits it to the hustlemaster, the background service that runs several hustles in parallel headless sessions across subscription limits.",
+  "author": {
+    "name": "Julian Trude"
+  }
+}

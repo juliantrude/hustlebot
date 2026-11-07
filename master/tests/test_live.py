@@ -266,7 +266,8 @@ def test_graph_document_shows_each_increments_prompt(app, ids):
     assert status == 200 and doc["title"] == "Hustlemaster v2"
     assert doc["subtitle"] == "hustlebot · 1/6 done"
     node = next(n for n in doc["nodes"] if n["id"] == "B")
-    assert node["details"][0] == {"label": "Prompt", "lines": ["Implement step B.", "Verify with the tests, then commit."]}
+    prompt = node["details"][0]
+    assert (prompt["label"], prompt["lines"]) == ("Prompt", ["Implement step B.", "Verify with the tests, then commit."])
     assert {"from": "A", "to": "B"} in doc["edges"]
     assert call(f"{url}/api/hustles/nope/graph.json")[0] == 404
 

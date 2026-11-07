@@ -43,3 +43,28 @@ own monitor (`scripts/hustle-monitor.py`) on its own port.
   simulation behind the same `/api/state`.
 - The design also exists in a self-hosted Penpot (`~/Work/penpot`); the prototype is the
   source of truth where they differ.
+
+## As built: plan editing in the graph view (`hustlemaster/editing.py`, graph-engine 1.2.0)
+
+- **graph-engine 1.2.0** (branch `feat/editing` of `../graph-engine`, not pushed) got editing, in producer-neutral
+  terms: a top-level `edit_url`, details rows with `edit` (a text area, or a select over `choices`) and node
+  `actions` (with an optional two-click `confirm`). The page POSTs one JSON edit to `edit_url`, then loads the
+  graph again and keeps the node selected; a refusal shows the server's reason and keeps the typed text.
+  `edit_url` must be a path on the page's own server. hustlemaster pins it as a path dependency
+  (`graph-engine>=1.2.0`, `../../graph-engine`).
+- **The route** `POST /api/hustles/<id>/edit` exists only in the web app; the MCP endpoint has nothing like it.
+  Prompt and model edits and deletions are plan changes by `user` and go through the plan validation (a Fable
+  model while `allow_fable` is off, or deleting the acceptance increment, is refused with the reason).
+- **A user's edit confirms the plan**: it is the user's own yes, so it becomes the baseline at once and needs no
+  approval of their own — unless an overseer's change is pending. Then the edit is judged like any change: an
+  approval only the user's explicit decision may settle is never settled as a side effect of an unrelated edit.
+  Before the first activation nothing is confirmed; the activation does that.
+- **What a state allows:** a done increment cannot change (a change would never run); a running one may change
+  prompt and model (they apply to its next attempt) and be paused, not deleted. Editing a **blocked** increment
+  reopens it with fresh attempts — "blocked until the user edits the plan" (ADR 0015) is exactly that edit.
+- **Deleting** hands the increment's dependencies to its dependants, in its place, so the order it stood for
+  remains.
+- **Pause** is runtime control, not a plan change: a flag in `progress` that survives plan versions and makes the
+  increment `held = "paused"` (an event overseer's hold outranks it). A running increment finishes its session;
+  a paused one is not started again. The node title carries ⏸ (the canvas draws only titles); the panel names
+  every hold.

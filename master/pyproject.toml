@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "hustlebot v2: one background service per machine that runs several hustles in parallel"
 requires-python = ">=3.12"
 dependencies = [
+    "graph-engine>=1.2.0",  # the graph view's page and its editing (ADR 0013)
     "mcp>=2.3.0",
     "pexpect>=4.9",
     "pyte>=0.8",
@@ -11,6 +12,9 @@ dependencies = [
 
 [dependency-groups]
 dev = ["pytest>=8", "playwright>=1.48"]
+
+[tool.uv.sources]
+graph-engine = { path = "../../graph-engine" }  # local, not published: a sibling checkout
 
 [build-system]
 requires = ["hatchling"]

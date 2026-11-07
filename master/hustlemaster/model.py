@@ -26,7 +26,8 @@ class Increment:
     mode: str = "worker"
     attempts: int = 0
     peak_context: int = 0  # tokens; sizing feedback for the next plans (ADR 0009)
-    held: str = ""  # why it may not start although its dependencies are done, e.g. an event overseer works on it
+    # why it may not start although its dependencies are done: "overseer", "paused" (the user), or an approval
+    held: str = ""
 
 
 @dataclass

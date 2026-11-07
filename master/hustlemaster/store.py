@@ -65,6 +65,7 @@ CREATE TABLE IF NOT EXISTS progress (
     attempts INTEGER NOT NULL DEFAULT 0,
     peak_context INTEGER NOT NULL DEFAULT 0,
     note TEXT,  -- what the increment's next session must know, e.g. why the last attempt failed; read once
+    paused INTEGER NOT NULL DEFAULT 0,  -- the user holds it back from starting (ADR 0013); not part of the plan
     PRIMARY KEY (hustle, increment)
 );
 CREATE TABLE IF NOT EXISTS proposals (
@@ -255,16 +256,25 @@ class Store:
             self._write_version(hustle_id, 1, increments, author, "submitted")
         return hustle_id
 
-    def change_plan(self, hustle_id: str, increments: list[Increment], *, author: str, note: str = "") -> int:
+    def change_plan(self, hustle_id: str, increments: list[Increment], *, author: str, note: str = "",
+                    confirm: bool = False) -> int:
         """Store a new plan version. Progress of increments that keep their id carries over. A change beyond the
-        approval bounds of ADR 0015 is stored too, but what it adds waits for the approval (`approvals`)."""
+        approval bounds of ADR 0015 is stored too, but what it adds waits for the approval (`approvals`).
+
+        `confirm` is the user's own change in the dashboard: it is their yes, so it becomes the baseline at once —
+        unless an approval is pending, which only the user's explicit decision may settle: then it is judged."""
         self._require(hustle_id)
         self._check(increments)
         with self.db:
             self.db.execute("BEGIN")
             version = self._version(hustle_id) + 1
+            pending = self.approvals(hustle_id, states=("pending",))
+            confirmed = self.hustle(hustle_id).confirmed_version
             self._write_version(hustle_id, version, increments, author, note)
-            self._judge(hustle_id)
+            if confirm and not pending and confirmed is not None:
+                self.db.execute("UPDATE hustles SET confirmed_version = ? WHERE id = ?", (version, hustle_id))
+            else:
+                self._judge(hustle_id)
         return version
 
     def hustle(self, hustle_id: str, version: int | None = None) -> Hustle | None:
@@ -337,6 +347,13 @@ class Store:
 
     def note_peak_context(self, hustle_id: str, increment: str, tokens: int) -> None:
         self._progress(hustle_id, increment, "peak_context = MAX(peak_context, ?)", tokens)
+
+    def set_paused(self, hustle_id: str, increment: str, paused: bool) -> None:
+        self._progress(hustle_id, increment, "paused = ?", int(paused))
+
+    def reopen(self, hustle_id: str, increment: str) -> None:
+        """A blocked increment the user changed gets a fresh start: blocked waits for exactly that (ADR 0015)."""
+        self._progress(hustle_id, increment, "state = 'open', attempts = 0")
 
     def leave_note(self, hustle_id: str, increment: str, note: str | None) -> None:
         self._progress(hustle_id, increment, "note = ?", note)
@@ -527,7 +544,7 @@ class Store:
 
     def _increments(self, hustle_id: str, version: int) -> list[Increment]:
         rows = self.db.execute(
-            """SELECT p.*, g.state, g.attempts, g.peak_context,
+            """SELECT p.*, g.state, g.attempts, g.peak_context, g.paused,
                       EXISTS (SELECT 1 FROM events e WHERE e.hustle = p.hustle AND e.increment = p.id
                               AND e.state IN ('open', 'running')) AS overseen
                FROM plan_increments p
@@ -550,7 +567,7 @@ class Store:
                 mode=r["mode"],
                 attempts=r["attempts"],
                 peak_context=r["peak_context"],
-                held="overseer" if r["overseen"] else waiting.get(r["id"], ""),
+                held="overseer" if r["overseen"] else "paused" if r["paused"] else waiting.get(r["id"], ""),
             )
             for r in rows
         ]

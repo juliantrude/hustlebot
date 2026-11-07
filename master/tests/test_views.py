@@ -224,3 +224,71 @@ def test_settings_and_approvals_in_the_control_view(approvals_server, page, tmp_
     page.wait_for_function("() => document.querySelectorAll('#approvalList li').length === 1")
     assert store.hustle(ids["sync"]).confirmed_version == store.hustle(ids["sync"]).version
     assert page.errors == []
+
+
+def engine_frame(page):
+    page.frame_locator("#overlayFrame").locator("#stage canvas").first.wait_for(timeout=5000)
+    # the overlay's frame, not a card's preview behind it
+    frame = page.locator("#overlayFrame").element_handle().content_frame()
+    frame.wait_for_function("() => JSON.parse(document.getElementById('engine-state').textContent || '{}').ok")
+    return frame
+
+
+def engine_state(frame):
+    return frame.evaluate("() => JSON.parse(document.getElementById('engine-state').textContent)")
+
+
+def settled(frame, check: str):
+    # after an edit the page loads the graph again and draws it anew; `check` reads the new engine state
+    frame.wait_for_function(f"() => {{ const s = JSON.parse(document.getElementById('engine-state').textContent);"
+                            f" return s.ok && ({check}); }}")
+
+
+def test_plan_editing_in_the_graph_view(approvals_server, page, tmp_path):
+    url, ids, store = approvals_server
+    sync = ids["sync"]
+    page.goto(f"{url}/hustles/{sync}")
+    frame = engine_frame(page)
+    frame.evaluate('GraphEngine.click("B")')
+    panel = frame.locator("#panel")
+    assert panel.locator("textarea[data-field=prompt]").input_value().startswith("Implement step B.")
+
+    # the blocked increment gets a new prompt and with it a fresh start
+    panel.locator("textarea[data-field=prompt]").fill("Implement step B with the retry the overseer asked for.")
+    panel.locator(".editor", has=frame.locator("textarea")).locator("button").click()
+    settled(frame, "s.last_edit && s.last_edit.ok && s.panel && s.panel.id === 'B'")
+    b = next(i for i in store.hustle(sync).increments if i.id == "B")
+    assert b.prompt == "Implement step B with the retry the overseer asked for." and b.state == "open"
+    assert store.versions(sync)[-1].author == "user"
+    assert engine_state(frame)["panel"]["details"][0]["lines"] == [b.prompt]
+    shot(page, "graph-edit-prompt", tmp_path)
+
+    panel.locator("select[data-field=model]").select_option("haiku")
+    panel.locator(".editor", has=frame.locator("select")).locator("button").click()
+    settled(frame, "s.nodes.some(n => n.id === 'B' && n.type === 'haiku')")
+    assert next(i for i in store.hustle(sync).increments if i.id == "B").model == "haiku"
+
+    panel.locator("[data-action=pause]").click()
+    settled(frame, "s.nodes.some(n => n.id === 'B' && n.tag.includes('paused'))")
+    assert next(i for i in store.hustle(sync).increments if i.id == "B").held == "paused"
+    assert panel.locator("[data-action=resume]").count() == 1
+    shot(page, "graph-paused", tmp_path)
+
+    # the server refuses what would break the plan, and the page says why
+    frame.evaluate('GraphEngine.click("ok")')
+    panel.locator("[data-action=delete]").click()
+    assert panel.locator("[data-action=delete]").inner_text() == "Delete ok? Click again"
+    panel.locator("[data-action=delete]").click()
+    panel.locator("#edit-error").wait_for()
+    assert "no acceptance increment" in panel.locator("#edit-error").inner_text()
+    shot(page, "graph-refused", tmp_path)
+
+    frame.evaluate('GraphEngine.click("B")')
+    panel.locator("[data-action=delete]").click()
+    panel.locator("[data-action=delete]").click()
+    settled(frame, "!s.nodes.some(n => n.id === 'B') && s.panel === null")
+    plan = {i.id: i.after for i in store.hustle(sync).increments}
+    assert "B" not in plan and plan["ok"][0] == "A"
+    shot(page, "graph-deleted", tmp_path)
+    # Chromium logs the refused delete's answer; that one was asked for
+    assert [e for e in page.errors if "status of 409" not in e] == []

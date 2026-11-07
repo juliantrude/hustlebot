@@ -13,6 +13,7 @@ import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from . import editing
 from .access import interactive_token
 from .graph import graph_doc
 from .live import Live
@@ -81,7 +82,7 @@ def make_handler(live: Live, engine: Path):
                 return self._json(live.summary())
             match = re.fullmatch(r"/api/hustles/([\w-]+)/graph\.json", path)
             if match and (hustle := live.store.hustle(match.group(1))):
-                return self._json(graph_doc(hustle))
+                return self._json(graph_doc(hustle, allow_fable=live.store.settings().allow_fable))
             self._json({"error": "not found"}, 404)
 
         def do_POST(self) -> None:
@@ -103,6 +104,12 @@ def make_handler(live: Live, engine: Path):
                     if "weight" in body:
                         store.set_weight(match.group(1), max(1, int(body["weight"])))
                     return self._json(live.summary())
+                match = re.fullmatch(r"/api/hustles/([\w-]+)/edit", self.path)
+                if match and store.hustle(match.group(1)):
+                    # from the graph view's panel (graph-engine's edit_url); answers with the graph as it is now
+                    editing.apply(store, match.group(1), body)
+                    hustle = store.hustle(match.group(1))
+                    return self._json(graph_doc(hustle, allow_fable=store.settings().allow_fable))
                 match = re.fullmatch(r"/api/approvals/(\d+)", self.path)
                 if match:
                     decisions = {"yes": store.approve, "no": store.reject, "revoke": store.revoke}

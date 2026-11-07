@@ -103,8 +103,12 @@ class Report:
     mcp_url: str
     done: list[str] = field(default_factory=list)
     skipped: list[str] = field(default_factory=list)
+    client: bool = False
 
     def text(self) -> str:
+        if self.client:  # nothing of the hustlemaster lives here
+            return "\n".join([*(f"✔ {d}" for d in self.done), *(f"– {s}" for s in self.skipped), "",
+                              f"MCP: {self.mcp_url}"])
         lines = [*(f"✔ {d}" for d in self.done), *(f"– {s}" for s in self.skipped), "",
                  f"dashboard:   {self.url}",
                  f"login token: {self.where.dashboard_token}",
@@ -167,7 +171,7 @@ def install_client(url: str, token: str, master: Path = MASTER, *, env: dict[str
     claude = _which("claude", env, claude)
     if not url.startswith(("https://", "http://")):
         raise InstallError("the MCP address must be a URL, e.g. https://hustle.example.org/mcp")
-    report = Report(layout(env), "(on the hustle host)", url)
+    report = Report(layout(env), "", url, client=True)
     _mcp_entry(run, claude, env, url, token.strip())
     report.done.append(f"MCP entry `{MCP_NAME}` → {url} (user scope)")
     if plugin:

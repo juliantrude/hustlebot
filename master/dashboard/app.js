@@ -99,6 +99,7 @@ function render(state) {
   titles = new Map(state.hustles.map((c) => [c.id, `${c.project} · ${c.title}`]));
   route();
   Flow.update(state, cards);
+  Thresholds.update(state);
 }
 
 // --- routes: / is the list, /hustles/<id> the hustle's graph full screen --------------------------------
@@ -144,6 +145,8 @@ document.addEventListener("keydown", closeOnEscape);
 document.querySelectorAll("[data-points]").forEach((b) =>
   b.addEventListener("click", () => api("/api/settings", { total_points: Number($("points").textContent) + Number(b.dataset.points) }).then(render))
 );
+
+Thresholds.init((changes) => api("/api/settings", changes).then(render));
 
 const refresh = () => api("/api/state").then(render);
 refresh();

@@ -21,8 +21,9 @@ from .store import Store
 
 DASHBOARD = Path(__file__).resolve().parent.parent / "dashboard"
 STATIC = {"/": "index.html", "/app.js": "app.js", "/load.js": "load.js", "/flow.js": "flow.js", "/app.css": "app.css",
-          "/cinema": "cinema.html", "/cinema.js": "cinema.js"}
+          "/thresholds.js": "thresholds.js", "/cinema": "cinema.html", "/cinema.js": "cinema.js"}
 TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css"}
+SETTINGS = ("total_points", "session_threshold", "week_target")  # what the dashboard may write, all integers
 
 
 def engine_page() -> Path:
@@ -72,8 +73,11 @@ def make_handler(live: Live, engine: Path):
             store = live.store
             try:
                 if self.path == "/api/settings":
-                    if "total_points" in body:
-                        store.update_settings(total_points=max(1, int(body["total_points"])))
+                    changes = {key: int(body[key]) for key in SETTINGS if key in body}
+                    if "total_points" in changes:
+                        changes["total_points"] = max(1, changes["total_points"])
+                    # one call, so an invalid value rejects the whole request
+                    store.update_settings(**changes)
                     return self._json(live.summary())
                 match = re.fullmatch(r"/api/hustles/([\w-]+)", self.path)
                 if match and store.hustle(match.group(1)):
@@ -89,7 +93,7 @@ def make_handler(live: Live, engine: Path):
                         return self._json({"error": "decision must be yes or no"}, 400)
                     decide(int(match.group(1)))
                     return self._json(live.summary())
-            except (KeyError, ValueError) as e:
+            except (KeyError, ValueError, TypeError) as e:
                 return self._json({"error": str(e)}, 409)
             self._json({"error": "not found"}, 404)
 

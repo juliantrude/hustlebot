@@ -4,8 +4,10 @@ at them."""
 
 from __future__ import annotations
 
+import math
 import os
 import threading
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -13,6 +15,7 @@ import pytest
 from conftest import seed
 from hustlemaster.server import serve
 from hustlemaster.store import Store
+from hustlemaster.usage import Reading, Window
 
 pytestmark = pytest.mark.views
 playwright = pytest.importorskip("playwright.sync_api")
@@ -29,6 +32,10 @@ def server():
     live.started(ids["master"], "B", "sonnet")
     live.started(ids["master"], "D", "haiku")
     live.started(ids["sync"], "event-1", "opus")
+    now = datetime.now(timezone.utc)
+    # four days into the week: the target line stands at 95 * 4/7 ≈ 54 %
+    live.usage.observe(Reading(now, {"session": Window(62.0, now + timedelta(hours=2)),
+                                     "week": Window(40.0, now + timedelta(days=3))}, "screen"))
     for _ in range(20):
         live.step()
     live.run_forever()
@@ -107,4 +114,63 @@ def test_cinema_view_draws_lanes(server, page, tmp_path):
     )
     shot(page, "cinema", tmp_path)
     assert lit > 0.01, "the cinema canvas stayed black"
+    assert page.errors == []
+
+
+def thresholds(page, url):
+    return page.request.get(url + "/api/state").json()["thresholds"]
+
+
+def test_threshold_knobs_drag_around_the_ring_and_answer_the_keys(server, page, tmp_path):
+    url, _ = server
+    page.goto(url + "/")
+    knob = page.locator(".knob.session")
+    knob.wait_for()
+    assert knob.get_attribute("aria-valuenow") == "85"
+    assert page.locator("#thresholdText").inner_text() == "5h stop 85 % · week 95 % at reset, line now 54 %"
+    shot(page, "thresholds", tmp_path)
+    box = page.locator("svg.thresholds").bounding_box()
+    cx, cy = box["x"] + box["width"] / 2, box["y"] + box["height"] / 2
+    k = knob.bounding_box()
+    page.mouse.move(k["x"] + k["width"] / 2, k["y"] + k["height"] / 2)
+    page.mouse.down()
+    # anticlockwise along the inner ring from 85 % to 60 %
+    for pct in range(85, 59, -5):
+        a = -math.pi / 2 + 2 * math.pi * pct / 100
+        page.mouse.move(cx + 61 * math.cos(a), cy + 61 * math.sin(a))
+    shot(page, "threshold-drag", tmp_path)
+    assert thresholds(page, url)["session"] == 85  # nothing is sent while the knob is held
+    page.mouse.up()
+    page.wait_for_function("() => document.querySelector('.knob.session').getAttribute('aria-valuenow') === '60'")
+    page.wait_for_timeout(300)
+    assert thresholds(page, url)["session"] == 60
+    week = page.locator(".knob.week")
+    week.focus()
+    for _ in range(3):
+        page.keyboard.press("ArrowDown")
+    page.wait_for_timeout(900)
+    assert thresholds(page, url) == {"session": 60, "week": 92}
+    assert page.locator("#thresholdText").inner_text() == "5h stop 60 % · week 92 % at reset, line now 53 %"
+    shot(page, "thresholds-set", tmp_path)
+    page.request.post(url + "/api/settings", data={"session_threshold": 85, "week_target": 95})
+    assert page.errors == []
+
+
+def test_cinema_view_shows_only_active_hustles(server, page, tmp_path):
+    url, _ = server
+    # the scene is one canvas: record what it writes
+    page.add_init_script("""(() => {
+      window.drawn = new Set();
+      const fill = CanvasRenderingContext2D.prototype.fillText;
+      CanvasRenderingContext2D.prototype.fillText = function (text, ...rest) {
+        window.drawn.add(String(text));
+        return fill.call(this, text, ...rest);
+      };
+    })()""")
+    page.goto(url + "/cinema")
+    page.wait_for_timeout(1500)
+    drawn = set(page.evaluate("() => [...window.drawn]"))
+    assert {"Hustlemaster v2", "Workout sync API"} <= drawn
+    assert "Docs search" not in drawn  # inactive
+    shot(page, "cinema-active", tmp_path)
     assert page.errors == []

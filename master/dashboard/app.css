@@ -67,6 +67,17 @@ button:hover{background:#24304a}
 .core-week{font-size:10px;color:#9fb0c8;margin-top:2px}
 .core-points{position:absolute;left:150px;transform:translateX(-50%);text-align:center;white-space:nowrap}
 .core-points .stepper{justify-content:center}
+/* threshold sliders on the core's rings (thresholds.js); only the knobs take the pointer */
+.thresholds{position:absolute;left:-40px;top:-40px;width:200px;height:200px;overflow:visible;pointer-events:none}
+.thresholds .stop-zone{fill:none;stroke:rgba(255,107,107,.35);stroke-width:3;stroke-linecap:round}
+.thresholds .line-now{stroke:rgba(255,255,255,.85);stroke-width:1.5;stroke-linecap:round}
+.knob{pointer-events:auto;cursor:grab;outline:none}
+.knob .hit{fill:transparent}
+.knob .dot{fill:#0f1115;stroke-width:2.5;transition:r .1s}
+.knob.session .dot{stroke:#ff6b6b} .knob.week .dot{stroke:#c9b6ff}
+.knob:hover .dot,.knob:focus-visible .dot,.knob.held .dot{r:8}
+.knob.held{cursor:grabbing}
+#thresholdText.held{color:#e6e6e6}
 @media(max-width:1100px){.flow{grid-template-columns:1fr}.core-col{min-height:260px}}
 .top{justify-content:space-between}
 .cinema-link{color:#8a94a6;font-size:13px;text-decoration:none;border:1px solid #2a3242;border-radius:6px;padding:4px 10px}

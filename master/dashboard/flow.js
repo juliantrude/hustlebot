@@ -9,6 +9,7 @@ const Flow = (() => {
   const CORE = { x: 150, r: 52 }; // centre x and radius of the orb: far enough in for the halo (2.6 r) to fit
   const MAX_POINTS = 40; // points at which the core burns at full brightness
   const TRUNK_MAX = 96; // beam thickness at the core when all points are shared out
+  const RINGS = { session: CORE.r + 9, week: CORE.r + 17 }; // radii of the usage rings, which carry the sliders
   const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   let state = null;
@@ -141,8 +142,8 @@ const Flow = (() => {
       ctx.restore();
     };
     const hot = (p) => (p >= 90 ? "#ff6b6b" : p >= 75 ? "#f0b74d" : null);
-    ring(CORE.r + 9, state.usage.session.percent, hot(state.usage.session.percent) || "#7fd0ff", 3);
-    ring(CORE.r + 17, state.usage.week.percent, hot(state.usage.week.percent) || "#a78bfa", 2);
+    ring(RINGS.session, state.usage.session.percent, hot(state.usage.session.percent) || "#7fd0ff", 3);
+    ring(RINGS.week, state.usage.week.percent, hot(state.usage.week.percent) || "#a78bfa", 2);
   }
 
   function frame(now) {
@@ -226,5 +227,5 @@ const Flow = (() => {
   }
   requestAnimationFrame(frame);
 
-  return { update };
+  return { update, rings: RINGS };
 })();

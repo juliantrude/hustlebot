@@ -2,7 +2,8 @@
 // Cinema view (/cinema): the always-on display. No controls, pure black for OLED. The energy core on the left
 // feeds one beam per hustle; each beam bends into its hustle's lane and runs on as that lane: the last hour of
 // sessions pulses inside it like a waveform, and it ends in the hustle's graph, where sparks hit the increments that
-// are running right now. Inactive hustles are ghost lanes without a beam.
+// are running right now. Only active hustles are shown; one without a share right now (waiting, done) is a ghost
+// lane without a beam. The rings carry the thresholds as marks: the 5h stop, the weekly target and where its line is.
 
 (() => {
   const NEON = { haiku: "#00f0ff", sonnet: "#ffb300", opus: "#b46bff", fable: "#ff3dbd" };
@@ -56,7 +57,7 @@
   // --- scene geometry ------------------------------------------------------------------------------------------
   function geometry(W, H) {
     const core = { x: W * 0.11, y: H * 0.5, r: Math.min(W, H) * 0.085 };
-    const hustles = [...state.hustles].sort((a, b) => (b.active - a.active) || (b.share - a.share) || b.weight - a.weight);
+    const hustles = state.hustles.filter((c) => c.active).sort((a, b) => (b.share - a.share) || b.weight - a.weight);
     const n = hustles.length;
     const top = H * 0.12, bottom = H * 0.92;
     const gap = (bottom - top) / Math.max(1, n);
@@ -64,11 +65,12 @@
     const laneX = W * 0.3, dagX = W * 0.66, endX = W * 0.95;
     // trunk at the core: beams stacked in lane order
     const lanes = hustles.map((c, i) => {
-      const target = c.share > 0 ? Math.min(gap * 0.4, c.share * perPoint) : c.active && c.status === "blocked" ? 1.5 : 0;
+      const target = c.share > 0 ? Math.min(gap * 0.4, c.share * perPoint) : c.status === "blocked" ? 1.5 : 0;
       const prev = shown.get(c.id) ?? target;
       const thick = prev + (target - prev) * 0.06; // ease towards the new share
       shown.set(c.id, thick);
-      return { hustle: c, y: top + gap * (i + 0.5), thick, gap };
+      // labels scale with the lane, but not past what three lanes would give: one or two active hustles would shout
+      return { hustle: c, y: top + gap * (i + 0.5), thick, gap, type: Math.min(gap, (bottom - top) / 3) };
     });
     const trunk = lanes.reduce((s, l) => s + l.thick, 0);
     let y0 = core.y - trunk / 2;
@@ -127,7 +129,7 @@
       ctx.fillStyle = rgba(STATE.blocked, reduced || Math.random() > 0.1 ? 0.6 : 0.1);
       ctx.fill();
     } else {
-      // inactive: ghost lane, no connection to the core
+      // no share right now: ghost lane, no connection to the core
       ctx.strokeStyle = "rgba(120,140,170,0.12)";
       ctx.setLineDash([2, 6]);
       ctx.beginPath();
@@ -156,12 +158,10 @@
     });
 
     // title above the lane
-    const dim = c.active ? 1 : 0.35;
-    ctx.globalAlpha = dim;
     ctx.fillStyle = "rgba(160,190,220,0.7)";
-    ctx.font = `600 ${Math.round(l.gap * 0.1)}px ${FONT}`;
+    ctx.font = `600 ${Math.round(l.type * 0.1)}px ${FONT}`;
     ctx.letterSpacing = "3px";
-    const titleSize = Math.round(l.gap * 0.17), projSize = Math.round(l.gap * 0.1);
+    const titleSize = Math.round(l.type * 0.17), projSize = Math.round(l.type * 0.1);
     const above = l.y - Math.max(half, 2) - 12;
     ctx.fillText(c.project.toUpperCase(), g.laneX, above - titleSize - 4);
     ctx.letterSpacing = "0px";
@@ -180,14 +180,13 @@
     ctx.fillRect(g.laneX, below, (pw * c.done) / c.total, 2);
     ctx.restore();
     ctx.fillStyle = "rgba(160,190,220,0.6)";
-    ctx.font = `${Math.round(l.gap * 0.09)}px ${FONT}`;
+    ctx.font = `${Math.round(l.type * 0.09)}px ${FONT}`;
     ctx.fillText(`${c.done}/${c.total}  ·  ${c.status}`, g.laneX + pw + 12, below + 4);
-    ctx.globalAlpha = 1;
 
-    drawGraph(g, l, now, dim);
+    drawGraph(g, l, now);
   }
 
-  function drawGraph(g, l, now, dim) {
+  function drawGraph(g, l, now) {
     const c = l.hustle, t = now / 1000;
     const lay = layoutGraph(c.increments);
     const x0 = g.dagX + 18, x1 = g.endX;
@@ -199,7 +198,6 @@
     l.nodes = pos;
     const r = Math.max(3, l.gap * 0.035);
     // the lane flows on into the roots of the graph
-    ctx.globalAlpha = dim;
     if (c.share > 0) {
       for (const i of c.increments.filter((i) => !i.after.length)) {
         const grad = ctx.createLinearGradient(g.dagX - 40, 0, pos[i.id].x, 0);
@@ -298,6 +296,24 @@
     const hot = (p, base) => (p >= 90 ? STATE.blocked : p >= 75 ? "#ffb300" : base);
     ring(R * 1.18, state.usage.session.percent, hot(state.usage.session.percent, "#00d0ff"), 4);
     ring(R * 1.34, state.usage.week.percent, hot(state.usage.week.percent, "#b46bff"), 2.5);
+    // threshold marks: a short bar across the ring at the value
+    const mark = (rad, pct, color, len, w) => {
+      const a = -Math.PI / 2 + (Math.PI * 2 * Math.min(100, pct)) / 100;
+      ctx.save();
+      ctx.shadowColor = color;
+      ctx.shadowBlur = 10;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = w;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(x + Math.cos(a) * (rad - len), y + Math.sin(a) * (rad - len));
+      ctx.lineTo(x + Math.cos(a) * (rad + len), y + Math.sin(a) * (rad + len));
+      ctx.stroke();
+      ctx.restore();
+    };
+    mark(R * 1.18, state.thresholds.session, STATE.blocked, R * 0.07, 2.5);
+    mark(R * 1.34, state.thresholds.week, "#e0c8ff", R * 0.06, 2.5);
+    if (state.usage.week.line !== undefined) mark(R * 1.34, state.usage.week.line, "rgba(255,255,255,0.8)", R * 0.04, 1.5);
     ctx.textAlign = "center";
     ctx.fillStyle = "#ffffff";
     ctx.save();

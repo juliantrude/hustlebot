@@ -11,9 +11,10 @@ from __future__ import annotations
 import threading
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import PurePath
 
+from .budget import target
 from .model import POINTS
 from .scheduler import Session, in_use, shares
 from .store import Store
@@ -96,7 +97,8 @@ class Live:
             "tick": tick,
             "tick_seconds": TICK_SECONDS,
             "events": events,
-            "usage": {name: self._window(name) for name in (SESSION, WEEK)},
+            "usage": {SESSION: self._window(SESSION), WEEK: self._window(WEEK, settings.week_target)},
+            "thresholds": {"session": settings.session_threshold, "week": settings.week_target},
             "approvals": [
                 {"id": str(a.id), "hustle": a.hustle, "text": "; ".join(a.reasons)}
                 for a in self.store.approvals(states=("pending",)) if a.hustle in titles
@@ -129,11 +131,15 @@ class Live:
             ],
         }
 
-    def _window(self, name: str) -> dict:
+    def _window(self, name: str, week_target: int | None = None) -> dict:
         estimate = self.usage.estimate(name)
         if estimate is None:
             return {"percent": 0, "resets": "unknown", "known": False}
-        return {"percent": round(estimate.percent, 1), "resets": _when(estimate.resets), "known": True}
+        window = {"percent": round(estimate.percent, 1), "resets": _when(estimate.resets), "known": True}
+        if week_target is not None and estimate.resets:
+            # where the weekly target line stands now: the mark the week's usage should stay below
+            window["line"] = round(target(estimate.resets, week_target, datetime.now(timezone.utc)), 1)
+        return window
 
 
 def project_name(path: str) -> str:

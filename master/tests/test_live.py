@@ -181,6 +181,36 @@ def test_settings_activation_and_weight_are_stored(app, store, ids):
     assert call(url + "/api/hustles/nope", {"active": True})[0] == 404
 
 
+def test_thresholds_are_written_together_and_rejected_together(app, store):
+    url, _ = app
+    status, state = call(url + "/api/settings", {"session_threshold": 70, "week_target": 90})
+    assert status == 200 and state["thresholds"] == {"session": 70, "week": 90}
+    assert (store.settings().session_threshold, store.settings().week_target) == (70, 90)
+    # one bad value: nothing of the request is stored
+    assert call(url + "/api/settings", {"session_threshold": 60, "week_target": 101})[0] == 409
+    assert call(url + "/api/settings", {"session_threshold": -1})[0] == 409
+    assert call(url + "/api/settings", {"week_target": "lots"})[0] == 409
+    assert call(url + "/api/settings", {"week_target": None})[0] == 409
+    assert (store.settings().session_threshold, store.settings().week_target) == (70, 90)
+    # the dashboard may not write what has no control yet
+    call(url + "/api/settings", {"allow_fable": True, "auto_approve_growth": 90})
+    assert not store.settings().allow_fable and store.settings().auto_approve_growth == 25
+
+
+def test_the_week_carries_where_its_target_line_stands_now(store, ids):
+    usage = Usage()
+    live = Live(store, usage)
+    store.update_settings(week_target=80)
+    assert "line" not in live.summary()["usage"]["week"]  # unknown before the first reading
+    now = datetime.now(timezone.utc)
+    usage.observe(Reading(now, {"session": Window(10.0, now + timedelta(hours=3)),
+                                "week": Window(30.0, now + timedelta(days=3, hours=12))}, "screen"))
+    state = live.summary()
+    assert state["usage"]["week"]["line"] == pytest.approx(40.0, abs=0.1)  # half the week gone, half of 80
+    assert "line" not in state["usage"]["session"]
+    assert state["thresholds"] == {"session": 85, "week": 80}
+
+
 def test_graph_document_shows_each_increments_prompt(app, ids):
     url, _ = app
     status, doc = call(f"{url}/api/hustles/{ids['master']}/graph.json")

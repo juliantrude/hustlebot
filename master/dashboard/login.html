@@ -1,0 +1,26 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>hustlebot · login</title>
+<style>
+:root{color-scheme:dark}
+body{font:15px/1.5 system-ui,sans-serif;margin:0;background:#0f1115;color:#e6e6e6;display:grid;place-items:center;min-height:100vh}
+form{background:#171a21;border:1px solid #232833;border-radius:10px;padding:24px 28px;width:min(420px,90vw)}
+h1{font-size:15px;font-weight:600;color:#8a94a6;letter-spacing:.04em;text-transform:uppercase;margin:0 0 14px}
+p{color:#6b7688;font-size:12px;margin:0 0 14px}
+code{color:#9fb0c8}
+input{box-sizing:border-box;width:100%;font:inherit;color:#e6e6e6;background:#0f1115;border:1px solid #2a3242;border-radius:6px;padding:8px 10px}
+input:focus{outline:none;border-color:#5ab0f0}
+button{margin-top:14px;font:inherit;color:#c8d0dc;background:#1c2230;border:1px solid #2a3242;border-radius:6px;cursor:pointer;padding:6px 16px}
+button:hover{background:#24304a}
+.error{color:#f07a7a;margin:10px 0 0}
+</style>
+</head><body>
+<form method="post" action="/login">
+ <h1>hustlebot</h1>
+ <p>The token is in <code>dashboard-token</code> in the hustlemaster's home.</p>
+ <input type="password" name="token" placeholder="Token" autocomplete="current-password" autofocus required>
+ <input type="hidden" name="next" value="{{next}}">
+ {{error}}
+ <button type="submit">Log in</button>
+</form>
+</body></html>

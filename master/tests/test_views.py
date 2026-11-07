@@ -292,3 +292,47 @@ def test_plan_editing_in_the_graph_view(approvals_server, page, tmp_path):
     shot(page, "graph-deleted", tmp_path)
     # Chromium logs the refused delete's answer; that one was asked for
     assert [e for e in page.errors if "status of 409" not in e] == []
+
+
+def test_the_token_login_leads_back_and_the_views_work_behind_it(page, tmp_path):
+    store = Store()
+    ids = seed(store)
+    httpd, _ = serve(store, 0, token="view-token")
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    url = f"http://127.0.0.1:{httpd.server_port}"
+    try:
+        page.goto(f"{url}/hustles/{ids['sync']}")
+        page.wait_for_selector("input[name=token]")
+        assert page.url.startswith(f"{url}/login?next=")
+        page.fill("input[name=token]", "wrong")
+        page.click("button[type=submit]")
+        page.wait_for_selector(".error")
+        assert page.locator(".error").inner_text() == "Wrong token."
+        shot(page, "login-refused", tmp_path)
+
+        page.fill("input[name=token]", "view-token")
+        page.click("button[type=submit]")
+        page.wait_for_url(f"{url}/hustles/{ids['sync']}")
+        # the graph page in the iframe loads its document and posts its edits with the login's cookie
+        frame = engine_frame(page)
+        frame.evaluate('GraphEngine.click("B")')
+        frame.locator("#panel [data-action=pause]").click()
+        settled(frame, "s.nodes.some(n => n.id === 'B' && n.tag.includes('paused'))")
+        assert next(i for i in store.hustle(ids["sync"]).increments if i.id == "B").held == "paused"
+        page.keyboard.press("Escape")
+        page.locator("article.hustle").first.wait_for()
+
+        page.goto(f"{url}/cinema")
+        page.wait_for_timeout(1500)
+        assert page.url == f"{url}/cinema"
+        shot(page, "cinema-logged-in", tmp_path)
+        # a display whose login is gone shows the login, not its last picture forever
+        page.context.clear_cookies()
+        page.wait_for_url(f"{url}/login?next=%2Fcinema", timeout=5000)
+        shot(page, "login", tmp_path)
+        # the browser logs the refused poll; that one was asked for
+        assert [e for e in page.errors if "status of 401" not in e] == []
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        store.close()

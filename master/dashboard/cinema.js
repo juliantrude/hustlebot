@@ -20,7 +20,10 @@
 
   async function poll() {
     try {
-      state = await (await fetch("/api/state")).json();
+      const res = await fetch("/api/state");
+      // an unattended display must not keep a stale picture for good once the login is gone
+      if (res.status === 401) return void (location.href = "/login?next=%2Fcinema");
+      state = await res.json();
     } catch (_) {
       // master away: keep the last picture
     }

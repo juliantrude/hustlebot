@@ -71,8 +71,9 @@ class Tokens:
             return self._callers.get(token)
 
 
-def interactive_token(path: Path) -> str:
-    """Read the interactive token, creating it (readable by the user only) on first use."""
+def token_file(path: Path) -> str:
+    """Read a token (the interactive MCP entry's, the dashboard login's), creating it readable by the user only
+    on first use."""
     if path.is_file():
         return path.read_text().strip()
     path.parent.mkdir(parents=True, exist_ok=True)

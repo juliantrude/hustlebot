@@ -46,9 +46,10 @@ def app(store, ids):
     server.server_close()
 
 
-def call(url, body=None):
+def call(url, body=None, token=None):
     data = None if body is None else json.dumps(body).encode()
-    req = urllib.request.Request(url, data=data, headers={"Content-Type": "application/json"})
+    headers = {"Content-Type": "application/json"} | ({"Authorization": f"Bearer {token}"} if token else {})
+    req = urllib.request.Request(url, data=data, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=5) as res:
             return res.status, json.loads(res.read())
@@ -275,17 +276,21 @@ def test_graph_document_shows_each_increments_prompt(app, ids):
 def test_the_server_boots_on_a_store_file_and_serves_it(tmp_path):
     db = tmp_path / "hustles.db"
     ids = seed(Store(db))
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        port = s.getsockname()[1]
-    proc = subprocess.Popen([sys.executable, "-m", "hustlemaster.server", "--db", str(db), "--port", str(port)],
-                            cwd=MASTER)
+    ports = []
+    for _ in range(2):
+        with socket.socket() as s:
+            s.bind(("127.0.0.1", 0))
+            ports.append(s.getsockname()[1])
+    port, mcp = ports
+    proc = subprocess.Popen([sys.executable, "-m", "hustlemaster.server", "--db", str(db), "--port", str(port),
+                             "--mcp-port", str(mcp)], cwd=MASTER)
     try:
         for _ in range(50):
             try:
-                _, state = call(f"http://127.0.0.1:{port}/api/state")
+                token = (tmp_path / "dashboard-token").read_text().strip()
+                _, state = call(f"http://127.0.0.1:{port}/api/state", token=token)
                 break
-            except OSError:
+            except OSError:  # not up yet, or the token file not written yet
                 time.sleep(0.1)
         else:
             pytest.fail("the server did not start")

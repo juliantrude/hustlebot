@@ -1,5 +1,5 @@
-"""The hustlemaster: the service loop (`service.py`) and its web app on 127.0.0.1 — the dashboard, its JSON API
-and the graph-engine page.
+"""The hustlemaster: the service loop (`service.py`) and its web app — the dashboard, its JSON API and the
+graph-engine page, behind a token login on a configurable address.
 
     python3 -m hustlemaster.server --db ~/.local/share/hustlemaster/hustles.db     # from master/
 """
@@ -7,14 +7,19 @@ and the graph-engine page.
 from __future__ import annotations
 
 import argparse
+import hmac
+import html
 import json
 import logging
 import re
+import socket
+from http.cookies import CookieError, SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from urllib.parse import parse_qs, quote, urlsplit
 
 from . import editing
-from .access import interactive_token
+from .access import token_file
 from .graph import graph_doc
 from .live import Live
 from .service import Service
@@ -24,6 +29,9 @@ DASHBOARD = Path(__file__).resolve().parent.parent / "dashboard"
 STATIC = {"/": "index.html", "/app.js": "app.js", "/load.js": "load.js", "/flow.js": "flow.js", "/app.css": "app.css",
           "/thresholds.js": "thresholds.js", "/cinema": "cinema.html", "/cinema.js": "cinema.js"}
 TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css"}
+COOKIE = "hustlemaster"
+# long, because the cinema view runs unattended on a display for months; a new token file logs everyone out
+COOKIE_AGE = 400 * 24 * 3600
 
 
 def _flag(value) -> bool:
@@ -54,23 +62,79 @@ def engine_page() -> Path:
         return Path(__file__).resolve().parents[3] / "graph-engine/src/graph_engine/page/index.html"
 
 
-def make_handler(live: Live, engine: Path):
+def _local(target: str) -> str:
+    """Where a login may send the browser: a path on this server only, never another host."""
+    parts = urlsplit(target)
+    if parts.scheme or parts.netloc or not target.startswith("/") or target.startswith("//") or "\\" in target:
+        return "/"
+    return target
+
+
+def make_handler(live: Live, engine: Path, token: str | None = None):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args) -> None:
             pass
 
-        def _send(self, status: int, body: bytes, kind: str) -> None:
+        def _send(self, status: int, body: bytes, kind: str, headers: dict[str, str] | None = None) -> None:
             self.send_response(status)
             self.send_header("Content-Type", f"{kind}; charset=utf-8")
             self.send_header("Cache-Control", "no-store")
+            for name, value in (headers or {}).items():
+                self.send_header(name, value)
             self.end_headers()
             self.wfile.write(body)
 
         def _json(self, value, status: int = 200) -> None:
             self._send(status, json.dumps(value, ensure_ascii=False).encode(), "application/json")
 
+        def _redirect(self, target: str, headers: dict[str, str] | None = None) -> None:
+            self._send(303, b"", "text/plain", {"Location": target, **(headers or {})})
+
+        def _authorized(self) -> bool:
+            if token is None:
+                return True
+            given = None
+            try:
+                if morsel := SimpleCookie(self.headers.get("Cookie") or "").get(COOKIE):
+                    given = morsel.value
+            except CookieError:
+                pass
+            auth = self.headers.get("Authorization") or ""
+            if auth.startswith("Bearer "):
+                given = auth.removeprefix("Bearer ")
+            return given is not None and hmac.compare_digest(given.encode(), token.encode())
+
+        def _refuse(self) -> None:
+            # the API answers scripts and the views' polls; a page is sent to the login and comes back after it
+            if self.path.startswith("/api/"):
+                return self._json({"error": "login required"}, 401)
+            self._redirect("/login?next=" + quote(self.path, safe=""))
+
+        def _login_page(self, target: str, error: str = "", status: int = 200) -> None:
+            page = (DASHBOARD / "login.html").read_text()
+            page = page.replace("{{next}}", html.escape(target)).replace(
+                "{{error}}", f'<p class="error">{html.escape(error)}</p>' if error else "")
+            self._send(status, page.encode(), "text/html")
+
+        def _login(self, body: bytes) -> None:
+            form = parse_qs(body.decode(errors="replace"))
+            given = (form.get("token") or [""])[0].strip()
+            target = _local((form.get("next") or ["/"])[0])
+            if token is None or not hmac.compare_digest(given.encode(), token.encode()):
+                return self._login_page(target, "Wrong token.", 401)
+            cookie = f"{COOKIE}={token}; Path=/; Max-Age={COOKIE_AGE}; HttpOnly; SameSite=Lax"
+            # behind a TLS-terminating proxy the browser talks https; on the bare address it does not
+            if self.headers.get("X-Forwarded-Proto") == "https":
+                cookie += "; Secure"
+            self._redirect(target, {"Set-Cookie": cookie})
+
         def do_GET(self) -> None:
             path = self.path.split("?", 1)[0]
+            if path == "/login":
+                target = (parse_qs(urlsplit(self.path).query).get("next") or ["/"])[0]
+                return self._login_page(_local(target))
+            if not self._authorized():
+                return self._refuse()
             if re.fullmatch(r"/hustles/[\w-]+", path):
                 path = "/"  # a route of the dashboard: the page itself, app.js shows the graph
             if path in STATIC:
@@ -87,7 +151,12 @@ def make_handler(live: Live, engine: Path):
 
         def do_POST(self) -> None:
             length = int(self.headers.get("Content-Length") or 0)
-            body = json.loads(self.rfile.read(length) or b"{}")
+            raw = self.rfile.read(length)
+            if self.path == "/login":
+                return self._login(raw)
+            if not self._authorized():
+                return self._refuse()
+            body = json.loads(raw or b"{}")
             store = live.store
             try:
                 if self.path == "/api/settings":
@@ -125,12 +194,18 @@ def make_handler(live: Live, engine: Path):
     return Handler
 
 
-def serve(store: Store, port: int, engine: Path | None = None,
-          live: Live | None = None) -> tuple[ThreadingHTTPServer, Live]:
-    """The web app on 127.0.0.1:`port` (0 picks a free one), not yet serving; the caller runs `serve_forever`.
-    `live` is the service's; without one the views show the store with nothing running."""
+class _Server6(ThreadingHTTPServer):
+    address_family = socket.AF_INET6
+
+
+def serve(store: Store, port: int, engine: Path | None = None, live: Live | None = None, *,
+          bind: str = "127.0.0.1", token: str | None = None) -> tuple[ThreadingHTTPServer, Live]:
+    """The web app on `bind`:`port` (0 picks a free one), not yet serving; the caller runs `serve_forever`.
+    `live` is the service's; without one the views show the store with nothing running. With a `token` every
+    route but the login needs it, as the login's cookie or a bearer header; without one (tests) nothing does."""
     live = live or Live(store)
-    server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(live, engine or engine_page()))
+    kind = _Server6 if ":" in bind else ThreadingHTTPServer
+    server = kind((bind, port), make_handler(live, engine or engine_page(), token))
     return server, live
 
 
@@ -139,6 +214,8 @@ def main() -> None:
     parser.add_argument("--db", required=True, help="the hustle store (SQLite), created if missing")
     parser.add_argument("--home", help="runs, worktrees and the interactive token; default: beside the store")
     parser.add_argument("--port", type=int, default=8770)  # 8765 is the prototype demo, 8786+ the old loop's monitors
+    parser.add_argument("--bind", default="127.0.0.1",
+                        help="the web app's address, e.g. a private interface; the MCP endpoint stays on 127.0.0.1")
     # fixed, because the interactive sessions' MCP entry names it
     parser.add_argument("--mcp-port", type=int, default=8771)
     parser.add_argument("--usage-cwd", help="a folder Claude Code trusts, for reading `/usage`; default: a project")
@@ -151,10 +228,13 @@ def main() -> None:
     store = Store(args.db)
     home = Path(args.home or Path(args.db).resolve().parent)
     service = Service(store, home, claude=args.claude, mcp_port=args.mcp_port, usage_cwd=args.usage_cwd,
-                      interactive=interactive_token(home / "interactive-token"))
-    server, _ = serve(store, args.port, engine, service.live)
+                      interactive=token_file(home / "interactive-token"))
+    login = home / "dashboard-token"
+    server, _ = serve(store, args.port, engine, service.live, bind=args.bind, token=token_file(login))
     service.start()
-    print(f"hustlemaster on http://127.0.0.1:{server.server_port}/, MCP on {service.endpoint.url}", flush=True)
+    host = f"[{args.bind}]" if ":" in args.bind else args.bind
+    print(f"hustlemaster on http://{host}:{server.server_port}/ (login token in {login}), MCP on "
+          f"{service.endpoint.url}", flush=True)
     try:
         server.serve_forever()
     finally:

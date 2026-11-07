@@ -68,3 +68,23 @@ own monitor (`scripts/hustle-monitor.py`) on its own port.
   increment `held = "paused"` (an event overseer's hold outranks it). A running increment finishes its session;
   a paused one is not started again. The node title carries ⏸ (the canvas draws only titles); the panel names
   every hold.
+
+## As built: token login and bind address (`hustlemaster/server.py`)
+
+- **`--bind`** (default `127.0.0.1`; an IPv6 address works too) sets the web app's address only. The MCP endpoint
+  binds `127.0.0.1` in its own code and never sees the flag; a test boots with `--bind 0.0.0.0` and finds MCP
+  refused on the machine's outward address.
+- **One token, its own file:** `dashboard-token` in the hustlemaster's home (0600, created on first start, like
+  `interactive-token` but separate, so the browser never holds the token that agents' MCP entry carries). The
+  start line names the file. A new file logs every browser out.
+- **Everything is behind it** except `/login`: the views, their scripts and the graph-engine page too, so nothing
+  about the hustles leaks. Without the token `/api/*` answers 401 (the views then go to the login themselves; the
+  cinema view must not keep a stale picture for good) and pages answer 303 to `/login?next=<path>`, which leads
+  back after the login. `next` is a path on this server only.
+- **The login sets a cookie** holding the token: `HttpOnly`, `SameSite=Lax` (every change is a POST, which a
+  cross-site page cannot send with it; `Strict` would log out whoever follows a link to the dashboard),
+  `Max-Age` 400 days (an unattended cinema display), `Secure` when a proxy says `X-Forwarded-Proto: https`.
+  The graph iframe and its `edit_url` POSTs carry it as same-origin requests. Scripts may send
+  `Authorization: Bearer <token>` instead. Comparisons are constant-time; there is no rate limit, the token is
+  256 bits.
+- `serve()` without a token serves everything openly; only tests use that, `main` always passes one.

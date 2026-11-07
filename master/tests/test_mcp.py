@@ -14,7 +14,7 @@ from mcp import Client
 from mcp.client.streamable_http import streamable_http_client
 from mcp.shared.exceptions import MCPError
 
-from hustlemaster.access import Caller, Gate, Refused, Tokens, interactive_token
+from hustlemaster.access import Caller, Gate, Refused, Tokens, token_file
 from hustlemaster.mcp_server import TOKEN_ENV, Endpoint
 from hustlemaster.store import Store
 
@@ -211,8 +211,8 @@ def test_gate_without_transport_binds_sessions_to_their_hustle():
         Tokens().issue("interactive", a)
 
 
-def test_interactive_token_is_created_once_and_private(tmp_path):
+def test_token_file_is_created_once_and_private(tmp_path):
     path = tmp_path / "state" / "interactive-token"
-    token = interactive_token(path)
-    assert len(token) > 30 and interactive_token(path) == token
+    token = token_file(path)
+    assert len(token) > 30 and token_file(path) == token
     assert stat.S_IMODE(os.stat(path).st_mode) == 0o600

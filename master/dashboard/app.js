@@ -7,8 +7,17 @@ const STATUS = { running: "running", waiting: "waiting", blocked: "blocked", pau
 // on screen comes from CSS `order` alone.
 const cards = new Map();
 
+// the login cookie expired or the token file was replaced: log in again and come back here
+function toLogin() {
+  location.href = "/login?next=" + encodeURIComponent(location.pathname + location.search);
+}
+
 async function api(path, body) {
   const res = await fetch(path, body === undefined ? {} : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  if (res.status === 401) {
+    toLogin();
+    return new Promise(() => {}); // nothing to render while the browser leaves
+  }
   return res.json();
 }
 

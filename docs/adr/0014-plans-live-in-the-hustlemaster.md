@@ -69,3 +69,18 @@ happens in the repo, by the project's Claude Code; execution belongs to the hust
   submitted valid plans with parallel independent increments and an Opus acceptance
   overseer. The first conversion run dropped `verify` (it skipped the interview, where the
   check is settled); §5 and §6 of the skill now say so explicitly.
+
+### As built (2026-11-07, `hustlemaster/install.py`, `user-plugin/skills/install/`)
+
+- **Deviation — the interactive MCP entry is written by the installer, not shipped with the plugin.** It carries
+  the machine's `interactive-token`, and a plugin is a public, shared file; Claude Code expands `${VAR}` in a
+  plugin's `.mcp.json`, but interactive sessions have no such variable. The installer runs
+  `claude mcp add -s user -t http hustlemaster http://127.0.0.1:8771/mcp -H "Authorization: Bearer <token>"`
+  (after `mcp remove`, so a new token or port replaces the entry).
+- **`/hustle` comes from a directory marketplace in the checkout** (`master/.claude-plugin/marketplace.json`,
+  name `hustlemaster`, plugin `hustlebot@hustlemaster`). Claude Code reads such a plugin in place, so a pull
+  updates `/hustle` and the skills can find the checkout. If another `hustlebot` is installed (the old loop's),
+  the installer leaves it and skips `/hustle`: two plugins answering to `hustlebot` would be ambiguous, and the
+  old one drives running chains until the migration.
+- **The plugin also carries `install`** (successor of `loop-setup`): it finds the checkout three folders above
+  itself, settles bind address and ports, runs the installer and reports where the login token is.

@@ -12,7 +12,9 @@ import html
 import json
 import logging
 import re
+import signal
 import socket
+import sys
 from http.cookies import CookieError, SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -235,6 +237,8 @@ def main() -> None:
     host = f"[{args.bind}]" if ":" in args.bind else args.bind
     print(f"hustlemaster on http://{host}:{server.server_port}/ (login token in {login}), MCP on "
           f"{service.endpoint.url}", flush=True)
+    # systemd stops with SIGTERM; leaving through `finally` lets merges under way finish before the process ends
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
     try:
         server.serve_forever()
     finally:

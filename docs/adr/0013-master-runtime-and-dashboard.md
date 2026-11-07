@@ -88,3 +88,25 @@ own monitor (`scripts/hustle-monitor.py`) on its own port.
   `Authorization: Bearer <token>` instead. Comparisons are constant-time; there is no rate limit, the token is
   256 bits.
 - `serve()` without a token serves everything openly; only tests use that, `main` always passes one.
+
+## As built: the systemd user unit (`hustlemaster/install.py`)
+
+- **Where things live:** the home is `$XDG_DATA_HOME/hustlemaster` (`~/.local/share/hustlemaster`, 0700): the
+  store `hustlemaster.db`, `runs/`, `worktrees/`, `interactive-token`, `dashboard-token`. The unit is
+  `$XDG_CONFIG_HOME/systemd/user/hustlemaster.service`. The installer creates both tokens, so the MCP entry can be
+  written before the first start and the login token's file named at once.
+- **How it runs:** `uv run --project <checkout>/master --no-dev python -m hustlemaster.server …` from the checkout
+  (graph-engine is a sibling path dependency, nothing is published to install from). `uv` and `claude` are the
+  absolute paths found at install time, not resolved through symlinks (a version manager's `latest` keeps
+  working after an update). `Environment=PATH=` is the installing shell's `PATH`, because projects' checks call
+  their own tools. The usage reader uses the same `claude` as the sessions (`Service.claude`).
+- **Sessions outlive the service:** `KillMode=process`. The default kills the whole control group, the running
+  hustlebots with it; with `process` a stop or restart reaches the hustlemaster alone, the sessions go on and the
+  next process adopts them (`merge.orphans`). systemd logs "left-over process … Ignoring" on the next start; that
+  is the intended case. SIGTERM ends the process through `Service.stop()`, so merges under way finish
+  (`TimeoutStopSec=300`). `Restart=on-failure`; `loginctl enable-linger` keeps it across logout.
+- **Idempotent:** a second install keeps tokens and store, rewrites the unit, `daemon-reload`, `enable`,
+  **`restart`** (so pulled code and a changed port take effect).
+- Verified by `master/prototypes/unit_check.py` with the generated unit in the runtime unit folder: a fake
+  session survived `systemctl --user restart` and was merged by the new process; with the real `claude`, the
+  `/usage` screen was read under systemd (the `forkpty()` in the threaded service did not hang).

@@ -1,0 +1,16 @@
+{
+  "name": "hustlemaster",
+  "owner": {
+    "name": "Julian Trude"
+  },
+  "metadata": {
+    "description": "The hustlemaster's user plugin, read in place from this checkout by `python -m hustlemaster.install`."
+  },
+  "plugins": [
+    {
+      "name": "hustlebot",
+      "source": "./user-plugin",
+      "description": "/hustle plans a goal as a hustle and submits it to the hustlemaster; /hustlebot:install sets the hustlemaster up on this machine."
+    }
+  ]
+}

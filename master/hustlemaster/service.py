@@ -86,6 +86,7 @@ class Service:
         self.live = Live(store, self.usage)
         self.runner = Runner(self.endpoint.mcp_config(), self.tokens, plugin_dir, self.home / "runs", claude=claude,
                              env=env)
+        self.claude = claude
         self.usage_cwd = usage_cwd
         self.jobs: dict[tuple[str, str], Job] = {}
         self.retries: dict[tuple[str, str], tuple[Job, Outcome]] = {}  # done, the merge waits for the user's `main`
@@ -137,7 +138,8 @@ class Service:
         if cwd is None:
             return  # no folder known to be trusted; the stream readings of the sessions still come in
         try:
-            self.usage.refresh(cwd)
+            # the unit's PATH may lack the user's shell additions; the sessions' `claude` is known to work
+            self.usage.refresh(cwd, command=(self.claude,))
         except (UsageError, OSError) as err:
             log.warning("usage screen not read: %s", err)
 

@@ -5,6 +5,7 @@ order in which parallel sessions reach the fake does not matter."""
 from __future__ import annotations
 
 import json
+import sys
 import threading
 import time
 import urllib.request
@@ -243,3 +244,19 @@ def test_one_process_serves_the_views_while_the_loop_runs(make, fake_claude, sto
         assert "SLOW" in seen
     finally:
         httpd.shutdown()
+
+
+def test_the_usage_screen_comes_from_the_sessions_claude(tmp_path, store, monkeypatch):
+    # the unit's PATH may lack the user's `claude`; the one the sessions are started with is known to work
+    claude = tmp_path / "bin" / "my-claude"
+    claude.parent.mkdir()
+    claude.write_text(f"#!/bin/sh\nexec {sys.executable} {Path(__file__).parent / 'fake_tui.py'}\n")
+    claude.chmod(0o755)
+    monkeypatch.setenv("FAKE_TUI_MODE", "ready")
+    monkeypatch.setenv("PATH", "/usr/bin:/bin")  # no `claude` to be found by name
+    svc = Service(store, tmp_path / "home", claude=str(claude), usage_cwd=tmp_path)
+    try:
+        svc.refresh_usage()
+        assert svc.usage.estimate("session") is not None
+    finally:
+        svc.stop()

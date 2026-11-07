@@ -1,6 +1,6 @@
 [project]
 name = "hustlemaster"
-version = "0.1.0"
+version = "2.0.0"
 description = "hustlebot v2: one background service per machine that runs several hustles in parallel"
 requires-python = ">=3.12"
 dependencies = [

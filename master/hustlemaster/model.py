@@ -63,10 +63,3 @@ class Hustle:
             return "blocked"
         return "waiting"
 
-
-def shares(hustles: list[Hustle], total: int) -> dict[str, float]:
-    """Guaranteed points per hustle: the total split by weight among the hustles that are active and have
-    something ready or running. Inactive or fully blocked hustles hold no share."""
-    pool = [c for c in hustles if c.active and (c.running() or c.ready())]
-    weights = sum(c.weight for c in pool)
-    return {c.id: (total * c.weight / weights if weights else 0.0) for c in pool}

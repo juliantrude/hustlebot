@@ -1,9 +1,8 @@
 """A fake clock for the mock: sessions start, run and finish so the dashboard has something to show.
 
 One tick stands for one minute of scheduler time and passes every TICK_SECONDS. Each tick finished sessions
-free their points, then the scheduler hands free points to the active hustle that is furthest below its share
-(work-conserving: a hustle may borrow points no one else can use). Every hustle keeps the last HISTORY ticks of
-what ran in it, for the trail on its card. A hustle that is done starts over after a pause, so the demo never
+free their points, then `scheduler.choose` hands out the free points (without a budget: the mock burns its usage
+on its own). Every hustle keeps the last HISTORY ticks of what ran in it, for the trail on its card. A hustle that is done starts over after a pause, so the demo never
 runs dry.
 """
 
@@ -14,7 +13,8 @@ import threading
 import time
 from dataclasses import dataclass
 
-from .model import POINTS, Hustle, shares
+from . import scheduler
+from .model import POINTS, Hustle
 
 TICK_SECONDS = 2.0
 HISTORY = 60
@@ -86,27 +86,13 @@ class Sim:
                     inc.state = "open"
 
     def _schedule(self) -> None:
-        share = shares(self.hustles, self.total_points)
-        while True:
-            free = self.total_points - self.points_in_use()
-            # neediest first: lowest use relative to share
-            candidates = sorted(
-                (c for c in self.hustles if c.id in share and c.ready()),
-                key=lambda c: self.points_in_use(c.id) / share[c.id],
-            )
-            started = False
-            for hustle in candidates:
-                inc = next((i for i in hustle.ready() if POINTS[i.model] <= free), None)
-                if inc is None:
-                    continue
-                inc.state = "running"
-                low, high = DURATION[inc.model]
-                self.sessions.append(Session(hustle.id, inc.id, inc.model, self.tick, self.tick + self.rng.randint(low, high)))
-                self.events.append({"tick": self.tick, "kind": "started", "hustle": hustle.id, "increment": inc.id, "model": inc.model})
-                started = True
-                break
-            if not started:
-                return
+        sessions = [scheduler.Session(s.hustle, s.increment, s.model) for s in self.sessions]
+        by_id = {c.id: c for c in self.hustles}
+        for start in scheduler.choose(self.hustles, self.total_points, sessions=sessions).starts:
+            next(i for i in by_id[start.hustle].increments if i.id == start.increment).state = "running"
+            low, high = DURATION[start.model]
+            self.sessions.append(Session(start.hustle, start.increment, start.model, self.tick, self.tick + self.rng.randint(low, high)))
+            self.events.append({"tick": self.tick, "kind": "started", "hustle": start.hustle, "increment": start.increment, "model": start.model})
 
     def _burn(self) -> None:
         used = self.points_in_use()

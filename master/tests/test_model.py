@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from hustlemaster.model import Hustle, Increment, shares
+from hustlemaster.model import Hustle, Increment
+from hustlemaster.scheduler import shares
 
 
 def hustle(id, active=True, weight=1, states="open"):

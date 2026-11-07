@@ -13,7 +13,8 @@ from pathlib import Path
 
 from . import mock
 from .graph import graph_doc
-from .model import POINTS, shares
+from .model import POINTS
+from .scheduler import shares
 from .sim import TICK_SECONDS, Sim
 
 DASHBOARD = Path(__file__).resolve().parent.parent / "dashboard"

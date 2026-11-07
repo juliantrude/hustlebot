@@ -10,7 +10,6 @@ from zoneinfo import ZoneInfo
 
 import pytest
 
-from hustlemaster import sim
 from hustlemaster.budget import Budget
 from hustlemaster.model import POINTS, Hustle, Increment
 from hustlemaster.runner import Outcome
@@ -248,14 +247,6 @@ def test_over_time_a_fable_increment_ready_late_still_gets_all_eight_points():
     hustles = [hustle("f", "haiku fable", after={1: ["f0"]}), hustle("h", "haiku " * 300)]
     simulate(hustles, 8, 40)
     assert hustles[0].increments[1].state in ("running", "done")
-
-
-def test_the_mock_simulation_starts_through_the_scheduler():
-    hustles = [hustle("a", weight=1), hustle("b", weight=3)]
-    s = sim.Sim(hustles, 8)
-    s.step()
-    assert s.points_in_use("a") == 2 and s.points_in_use("b") == 6
-    assert {e["kind"] for e in s.events} == {"started"}
 
 
 def test_finished_sessions_feed_the_fit_of_the_next_call():

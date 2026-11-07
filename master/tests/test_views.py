@@ -1,49 +1,42 @@
-"""Both views render against the mock server in the system Chromium. Screenshots land in $HM_SHOTS (default: the
-test's tmp dir) so a human can look at them."""
+"""Both views render against the real server on a seeded store in the system Chromium, with sessions reported the
+way the service loop reports them. Screenshots land in $HM_SHOTS (default: the test's tmp dir) so a human can look
+at them."""
 
 from __future__ import annotations
 
 import os
-import socket
-import subprocess
-import sys
-import time
-import urllib.request
+import threading
 from pathlib import Path
 
 import pytest
 
+from conftest import seed
+from hustlemaster.server import serve
+from hustlemaster.store import Store
+
 pytestmark = pytest.mark.views
 playwright = pytest.importorskip("playwright.sync_api")
 
-MASTER = Path(__file__).resolve().parent.parent
 CHROMIUM = "/usr/bin/chromium"
-
-
-def free_port() -> int:
-    # never 8765: the demo unit lives there
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
 
 
 @pytest.fixture(scope="module")
 def server():
-    port = free_port()
-    proc = subprocess.Popen([sys.executable, "-m", "hustlemaster.server", "--mock", "--port", str(port)], cwd=MASTER)
-    url = f"http://127.0.0.1:{port}"
-    for _ in range(50):
-        try:
-            urllib.request.urlopen(url + "/api/state", timeout=1)
-            break
-        except OSError:
-            time.sleep(0.1)
-    else:
-        proc.kill()
-        pytest.fail("mock server did not start")
-    yield url
-    proc.terminate()
-    proc.wait(5)
+    store = Store()
+    ids = seed(store)
+    # port 0: never 8765, where the demo unit lives
+    httpd, live = serve(store, 0)
+    live.started(ids["master"], "B", "sonnet")
+    live.started(ids["master"], "D", "haiku")
+    live.started(ids["sync"], "event-1", "opus")
+    for _ in range(20):
+        live.step()
+    live.run_forever()
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    yield f"http://127.0.0.1:{httpd.server_port}", ids
+    httpd.shutdown()
+    httpd.server_close()
+    store.close()
 
 
 @pytest.fixture
@@ -68,11 +61,16 @@ def shot(page, name, tmp_path):
 
 
 def test_control_view_shows_every_hustle_with_its_graph(server, page, tmp_path):
-    page.goto(server + "/")
+    url, _ = server
+    page.goto(url + "/")
     page.wait_for_selector("article.hustle")
     cards = page.locator("article.hustle")
-    assert cards.count() == 5
+    assert cards.count() == 3
     assert "Hustlemaster v2" in page.locator("#hustles").inner_text()
+    first = cards.nth(0)
+    assert first.locator(".share").inner_text() == "3/13.3 pts"  # 2 fr of 20 beside the 1 fr hustle its event overseer keeps in the pool
+    assert first.locator(".count").inner_text() == "1 / 6 increments"
+    assert "36 %" in page.locator("#approvals").inner_text()
     assert page.locator("h2", has_text="Hustles").count() == 1
     # the mini graph of the first card loads its document from the renamed route
     frame = page.frame_locator("article.hustle >> nth=0 >> .preview iframe")
@@ -83,7 +81,8 @@ def test_control_view_shows_every_hustle_with_its_graph(server, page, tmp_path):
 
 
 def test_graph_route_opens_the_hustle_full_screen(server, page, tmp_path):
-    page.goto(server + "/hustles/hb-master")
+    url, ids = server
+    page.goto(f"{url}/hustles/{ids['master']}")
     page.wait_for_selector("#overlay:not([hidden])")
     assert page.locator("#overlayTitle").inner_text() == "hustlebot · Hustlemaster v2"
     page.frame_locator("#overlayFrame").locator("#stage canvas").first.wait_for(timeout=5000)
@@ -94,7 +93,8 @@ def test_graph_route_opens_the_hustle_full_screen(server, page, tmp_path):
 
 
 def test_cinema_view_draws_lanes(server, page, tmp_path):
-    page.goto(server + "/cinema")
+    url, _ = server
+    page.goto(url + "/cinema")
     page.wait_for_timeout(2500)
     lit = page.evaluate(
         """() => {

@@ -1,6 +1,6 @@
 """The master's web app on 127.0.0.1: the dashboard, its JSON API and the graph-engine page.
 
-    python3 -m hustlemaster.server --mock     # from master/; made-up hustles (mock.py)
+    python3 -m hustlemaster.server --db hustles.db --port 8770     # from master/
 """
 
 from __future__ import annotations
@@ -11,11 +11,9 @@ import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from . import mock
 from .graph import graph_doc
-from .model import POINTS
-from .scheduler import shares
-from .sim import TICK_SECONDS, Sim
+from .live import Live
+from .store import Store
 
 DASHBOARD = Path(__file__).resolve().parent.parent / "dashboard"
 STATIC = {"/": "index.html", "/app.js": "app.js", "/load.js": "load.js", "/flow.js": "flow.js", "/app.css": "app.css",
@@ -33,60 +31,7 @@ def engine_page() -> Path:
         return Path(__file__).resolve().parents[3] / "graph-engine/src/graph_engine/page/index.html"
 
 
-class State:
-    def __init__(self) -> None:
-        self.total_points = 20
-        self.hustles = mock.hustles()
-        self.approvals = list(mock.APPROVALS)
-        self.sim = Sim(self.hustles, self.total_points)
-        self.sim.run_forever()
-
-    def hustle(self, hustle_id: str):
-        return next((c for c in self.hustles if c.id == hustle_id), None)
-
-    def summary(self) -> dict:
-        with self.sim.lock:
-            return self._summary()
-
-    def _summary(self) -> dict:
-        sim = self.sim
-        share = shares(self.hustles, self.total_points)
-        order = sorted(self.hustles, key=lambda c: (not c.active, -c.weight, c.title))
-        return {
-            "total_points": self.total_points,
-            "points_in_use": sum(c.points_in_use() for c in self.hustles),
-            "model_points": POINTS,
-            "tick": sim.tick,
-            "tick_seconds": TICK_SECONDS,
-            "events": sim.events,
-            "usage": sim.usage,
-            "approvals": self.approvals,
-            "hustles": [
-                {
-                    "id": c.id,
-                    "project": c.project,
-                    "title": c.title,
-                    "active": c.active,
-                    "weight": c.weight,
-                    "status": c.status(),
-                    "done": sum(i.state == "done" for i in c.increments),
-                    "total": len(c.increments),
-                    "share": round(share.get(c.id, 0), 1),
-                    "points_in_use": c.points_in_use(),
-                    "sessions": [
-                        {"increment": s.increment, "model": s.model, "points": POINTS[s.model], "started": s.started, "ends": s.ends}
-                        for s in sim.running(c.id)
-                    ],
-                    "history": sim.history[c.id],
-                    "graph_version": "".join(i.state[0] for i in c.increments),
-                    "increments": [{"id": i.id, "after": i.after, "state": i.state, "model": i.model} for i in c.increments],
-                }
-                for c in order
-            ],
-        }
-
-
-def make_handler(state: State, engine: Path):
+def make_handler(live: Live, engine: Path):
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *args) -> None:
             pass
@@ -111,46 +56,60 @@ def make_handler(state: State, engine: Path):
             if path in ("/engine/", "/engine/index.html"):
                 return self._send(200, engine.read_bytes(), "text/html")
             if path == "/api/state":
-                return self._json(state.summary())
+                return self._json(live.summary())
             match = re.fullmatch(r"/api/hustles/([\w-]+)/graph\.json", path)
-            if match and (hustle := state.hustle(match.group(1))):
+            if match and (hustle := live.store.hustle(match.group(1))):
                 return self._json(graph_doc(hustle))
             self._json({"error": "not found"}, 404)
 
         def do_POST(self) -> None:
             length = int(self.headers.get("Content-Length") or 0)
             body = json.loads(self.rfile.read(length) or b"{}")
-            if self.path == "/api/settings":
-                state.total_points = state.sim.total_points = max(1, int(body.get("total_points", state.total_points)))
-                return self._json(state.summary())
-            match = re.fullmatch(r"/api/hustles/([\w-]+)", self.path)
-            if match and (hustle := state.hustle(match.group(1))):
-                if "active" in body:
-                    hustle.active = bool(body["active"])
-                if "weight" in body:
-                    hustle.weight = max(1, int(body["weight"]))
-                return self._json(state.summary())
-            match = re.fullmatch(r"/api/approvals/([\w-]+)", self.path)
-            if match:
-                state.approvals = [a for a in state.approvals if a["id"] != match.group(1)]
-                return self._json(state.summary())
+            store = live.store
+            try:
+                if self.path == "/api/settings":
+                    if "total_points" in body:
+                        store.update_settings(total_points=max(1, int(body["total_points"])))
+                    return self._json(live.summary())
+                match = re.fullmatch(r"/api/hustles/([\w-]+)", self.path)
+                if match and store.hustle(match.group(1)):
+                    if "active" in body:
+                        store.set_active(match.group(1), bool(body["active"]))
+                    if "weight" in body:
+                        store.set_weight(match.group(1), max(1, int(body["weight"])))
+                    return self._json(live.summary())
+                match = re.fullmatch(r"/api/approvals/(\d+)", self.path)
+                if match:
+                    decide = {"yes": store.approve, "no": store.reject}.get(body.get("decision"))
+                    if decide is None:
+                        return self._json({"error": "decision must be yes or no"}, 400)
+                    decide(int(match.group(1)))
+                    return self._json(live.summary())
+            except (KeyError, ValueError) as e:
+                return self._json({"error": str(e)}, 409)
             self._json({"error": "not found"}, 404)
 
     return Handler
 
 
+def serve(store: Store, port: int, engine: Path | None = None) -> tuple[ThreadingHTTPServer, Live]:
+    """The web app on 127.0.0.1:`port` (0 picks a free one), not yet serving; the caller runs `serve_forever`."""
+    live = Live(store)
+    server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(live, engine or engine_page()))
+    return server, live
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--mock", action="store_true", help="serve made-up hustles (the only mode so far)")
-    parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--db", required=True, help="the hustle store (SQLite), created if missing")
+    parser.add_argument("--port", type=int, default=8770)  # 8765 is the prototype demo, 8786+ the old loop's monitors
     args = parser.parse_args()
-    if not args.mock:
-        parser.error("only --mock exists yet")
     engine = engine_page()
     if not engine.is_file():
         parser.error(f"graph-engine page not found at {engine}")
-    server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(State(), engine))
-    print(f"hustlemaster (mock) on http://127.0.0.1:{args.port}/")
+    server, live = serve(Store(args.db), args.port, engine)
+    live.run_forever()
+    print(f"hustlemaster on http://127.0.0.1:{server.server_port}/")
     server.serve_forever()
 
 

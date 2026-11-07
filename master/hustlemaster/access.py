@@ -125,11 +125,15 @@ class Gate:
         return self.store.propose(self._bound(hustle_id), text, author=self.caller.author,
                                   increment=self.caller.increment)
 
-    def change_plan(self, increments: list[Increment], note: str = "", hustle_id: str | None = None) -> int:
-        # The approval bounds of ADR 0015 (growth, upgrades beyond the share) are applied by the approvals
-        # increment; until then a change is stored like any other version.
+    def change_plan(self, increments: list[Increment], note: str = "", hustle_id: str | None = None) -> dict:
+        """The new version, and the approval it waits for if it went beyond the bounds of ADR 0015: the overseer
+        must know that what it added will not run until the user says yes."""
         self._right("change_plan")
-        return self.store.change_plan(self._bound(hustle_id), increments, author=self.caller.author, note=note)
+        hustle_id = self._bound(hustle_id)
+        answer: dict = {"version": self.store.change_plan(hustle_id, increments, author=self.caller.author, note=note)}
+        for pending in self.store.approvals(hustle_id, states=("pending",)):
+            answer["approval"] = {"reasons": pending.reasons, "waiting": pending.waiting}
+        return answer
 
     def submit_hustle(self, project: str, title: str, brief: str, increments: list[Increment]) -> str:
         self._right("submit_hustle")

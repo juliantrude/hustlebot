@@ -86,10 +86,11 @@ def build(store: Store, tokens: Tokens) -> MCPServer:
         return json.dumps({"proposal": run(lambda: gate(ctx).propose_change(text))})
 
     @server.tool(description="Replace the plan with a new version. Pass every increment, also the unchanged "
-                             "ones; progress carries over by id. Overseers leave hustle_id empty.")
+                             "ones; progress carries over by id. Overseers leave hustle_id empty. If the "
+                             "answer names an approval, the increments it lists wait until the user decides.")
     def change_plan(ctx: Context, increments: list[IncrementSpec], note: str = "", hustle_id: str = "") -> str:
         incs = [i.increment() for i in increments]
-        return json.dumps({"version": run(lambda: gate(ctx).change_plan(incs, note, hustle_id or None))})
+        return json.dumps(run(lambda: gate(ctx).change_plan(incs, note, hustle_id or None)))
 
     @server.tool(description="Submit a new hustle. It arrives paused; the user activates it in the dashboard.")
     def submit_hustle(ctx: Context, project: str, title: str, brief: str, increments: list[IncrementSpec]) -> str:

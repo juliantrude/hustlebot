@@ -68,3 +68,29 @@ and without bypassing the user on cost.
   overseer is the last automatic resort — and drops its proposals. Cut off at the limit, the event stays open.
 - While an event is open or running its increment is **held** (`Increment.held`), so it is not ready even when
   its dependencies are done. The approvals increment uses the same field for pending approvals.
+
+## As built: approvals (`hustlemaster/approvals.py`, `Store.approve` / `reject` / `revoke`)
+
+- **Judged on every plan change after the first activation**, the whole plan against the confirmed baseline
+  (`confirmed_version`), so growth adds up across changes until the next confirmation. Before the first
+  activation nothing is judged: the activation confirms whatever the plan is then. A newer change supersedes a
+  pending approval and is judged again as a whole; at most one approval per hustle is pending.
+- **Growth is the plain sum** of session points over the plan. A split whose parts cost no more together adds
+  nothing, so the split exemption holds by construction; a haiku increment split into two haiku parts does cost
+  more and counts.
+- **The share is the guarantee**: total points × weight over the weights of all active hustles (the judged one
+  counted as active), not the scheduler's momentary share, which rises whenever others are idle. A **new**
+  increment above the share counts as an upgrade from nothing: a split part on a stronger model must not slip
+  past the upgrade rule.
+- **What waits:** an increment upgraded beyond the share (`held = "approval"`); when the growth is too much, also
+  every increment new since the baseline (`held = "provisional"`). An open or running event overseer takes
+  precedence (`held = "overseer"`). Dependants wait by their dependencies; the rest of the hustle goes on.
+- **Decisions** are dashboard only (ADR 0014). Approve confirms the current plan as the new baseline. Reject blocks
+  the waiting increments that are still open, leaving the baseline where it was: reverting the model would hand
+  the increment back to the one that already failed it twice. Revoke takes back an automatic approval — only the
+  latest confirmation, since a later one built on it — moves the baseline back and judges the plan again for the
+  user, without auto-approve; what already ran stays done.
+- **Auto-approve** `limited`: growth up to `auto_approve_growth` % and every upgrade at most one model step
+  (haiku → sonnet → opus → fable); a new increment above the share is no step and is left to the user. Automatic
+  approvals are recorded (`approvals`, `automatic = 1`) like the user's.
+- An overseer's `change_plan` over MCP answers with the pending approval, if any, so it knows what will not run.

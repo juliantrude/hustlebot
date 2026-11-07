@@ -161,6 +161,7 @@ def test_an_overseer_cut_off_at_the_limit_keeps_its_event_open(store):
 
 
 def test_an_overseer_that_split_the_increment_away_leaves_no_note(store):
+    store.update_settings(auto_approve="all")  # two haiku parts cost more than one: the split grows the plan 33 %
     hid = submit(store, ("A", []))
     event = store.event(events.record(store, hid, "A", settle(0, outcome("too-big"))))
     store.change_plan(hid, plan(("A1", []), ("A2", ["A1"])), author="overseer", note="split A")

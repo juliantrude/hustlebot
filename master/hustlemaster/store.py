@@ -16,7 +16,7 @@ import uuid
 from dataclasses import dataclass, field, fields, replace
 from pathlib import Path
 
-from . import plan
+from . import approvals as judging, plan
 from .model import STATES, Hustle, Increment
 
 SCHEMA = """
@@ -86,6 +86,18 @@ CREATE TABLE IF NOT EXISTS events (
     state TEXT NOT NULL DEFAULT 'open',
     created REAL NOT NULL
 );
+CREATE TABLE IF NOT EXISTS approvals (
+    id INTEGER PRIMARY KEY,
+    hustle TEXT NOT NULL REFERENCES hustles(id),
+    version INTEGER NOT NULL,  -- the plan version it decides on
+    baseline INTEGER NOT NULL,  -- the confirmed version it was measured against
+    reasons TEXT NOT NULL,  -- JSON list
+    waiting TEXT NOT NULL,  -- JSON {increment: "approval" | "provisional"}: what may not start until the yes
+    state TEXT NOT NULL DEFAULT 'pending',
+    automatic INTEGER NOT NULL DEFAULT 0,
+    created REAL NOT NULL,
+    decided REAL
+);
 """
 
 AUTO_APPROVE = ("off", "limited", "all")
@@ -94,6 +106,8 @@ AUTO_APPROVE = ("off", "limited", "all")
 EVENT_KINDS = ("failed", "too-big", "conflict", "proposal")
 EVENT_STATES = ("open", "running", "handled", "failed")
 PENDING_EVENTS = ("open", "running")
+# A newer plan change supersedes a pending approval: it is judged again as a whole against the same baseline.
+APPROVAL_STATES = ("pending", "approved", "rejected", "revoked", "superseded")
 
 
 @dataclass
@@ -135,6 +149,20 @@ class Event:
     proposals: list[int]
     state: str
     created: float
+
+
+@dataclass
+class Approval:
+    id: int
+    hustle: str
+    version: int
+    baseline: int
+    reasons: list[str]
+    waiting: dict[str, str]
+    state: str
+    automatic: bool
+    created: float
+    decided: float | None
 
 
 @dataclass
@@ -222,13 +250,15 @@ class Store:
         return hustle_id
 
     def change_plan(self, hustle_id: str, increments: list[Increment], *, author: str, note: str = "") -> int:
-        """Store a new plan version. Progress of increments that keep their id carries over."""
+        """Store a new plan version. Progress of increments that keep their id carries over. A change beyond the
+        approval bounds of ADR 0015 is stored too, but what it adds waits for the approval (`approvals`)."""
         self._require(hustle_id)
         self._check(increments)
         with self.db:
             self.db.execute("BEGIN")
             version = self._version(hustle_id) + 1
             self._write_version(hustle_id, version, increments, author, note)
+            self._judge(hustle_id)
         return version
 
     def hustle(self, hustle_id: str, version: int | None = None) -> Hustle | None:
@@ -273,9 +303,15 @@ class Store:
                 )
 
     def confirm(self, hustle_id: str) -> None:
-        """Make the current plan the baseline that growth is measured against (an approval, ADR 0015)."""
+        """Make the current plan the baseline that growth is measured against: the user's yes to it as a whole,
+        which also settles a pending approval (ADR 0015)."""
         self._require(hustle_id)
-        self.db.execute("UPDATE hustles SET confirmed_version = ? WHERE id = ?", (self._version(hustle_id), hustle_id))
+        with self.db:
+            self.db.execute("BEGIN")
+            self.db.execute("UPDATE hustles SET confirmed_version = ? WHERE id = ?",
+                            (self._version(hustle_id), hustle_id))
+            self.db.execute("UPDATE approvals SET state = 'approved', decided = ? WHERE hustle = ? AND state = 'pending'",
+                            (time.time(), hustle_id))
 
     def set_weight(self, hustle_id: str, weight: int) -> None:
         self._require(hustle_id)
@@ -376,7 +412,89 @@ class Store:
                 self.db.execute("UPDATE progress SET attempts = 0 WHERE hustle = ? AND increment = ?",
                                 (event.hustle, event.increment))
 
+    # approvals (dashboard only, ADR 0014)
+
+    def approvals(self, hustle_id: str | None = None, *, states: tuple[str, ...] | None = None) -> list[Approval]:
+        rows = self.db.execute(
+            "SELECT * FROM approvals WHERE (? IS NULL OR hustle = ?) ORDER BY id", (hustle_id, hustle_id)
+        ).fetchall()
+        found = [self._approval(r) for r in rows]
+        return [a for a in found if states is None or a.state in states]
+
+    def approval(self, approval_id: int) -> Approval:
+        row = self.db.execute("SELECT * FROM approvals WHERE id = ?", (approval_id,)).fetchone()
+        if row is None:
+            raise KeyError(f"unknown approval {approval_id}")
+        return self._approval(row)
+
+    def approve(self, approval_id: int) -> None:
+        self.confirm(self._pending(approval_id).hustle)
+
+    def reject(self, approval_id: int) -> None:
+        """No to the change: what waited for it is blocked until the user edits the plan. Reverting the model
+        instead would only hand the increment back to the model that already failed it twice."""
+        approval = self._pending(approval_id)
+        with self.db:
+            self.db.execute("BEGIN")
+            self.db.execute("UPDATE approvals SET state = 'rejected', decided = ? WHERE id = ?",
+                            (time.time(), approval_id))
+            self.db.executemany(
+                "UPDATE progress SET state = 'blocked' WHERE hustle = ? AND increment = ? AND state = 'open'",
+                [(approval.hustle, i) for i in approval.waiting],
+            )
+
+    def revoke(self, approval_id: int) -> None:
+        """Take back an automatic approval: the baseline moves back and the plan is judged again, now for the user.
+        Only the latest confirmation can be taken back; what already ran stays done."""
+        approval = self.approval(approval_id)
+        if approval.state != "approved" or not approval.automatic:
+            raise ValueError("only automatic approvals can be revoked")
+        if self.hustle(approval.hustle).confirmed_version != approval.version:
+            raise ValueError("the plan was confirmed again since; only the latest approval can be revoked")
+        with self.db:
+            self.db.execute("BEGIN")
+            self.db.execute("UPDATE approvals SET state = 'revoked', decided = ? WHERE id = ?",
+                            (time.time(), approval_id))
+            self.db.execute("UPDATE hustles SET confirmed_version = ? WHERE id = ?",
+                            (approval.baseline, approval.hustle))
+            self._judge(approval.hustle, automatic=False)
+
     # internals
+
+    def _judge(self, hustle_id: str, *, automatic: bool = True) -> None:
+        # Called inside the plan change's transaction. Before the first activation nothing is judged: the
+        # activation confirms whatever the plan is then.
+        self.db.execute("UPDATE approvals SET state = 'superseded', decided = ? WHERE hustle = ? AND state = 'pending'",
+                        (time.time(), hustle_id))
+        hustle = self.hustle(hustle_id)
+        if hustle.confirmed_version is None:
+            return
+        settings = self.settings()
+        judgement = judging.judge(self._increments(hustle_id, hustle.confirmed_version), hustle.increments,
+                                  judging.share(hustle, self.hustles(), settings.total_points))
+        if not judgement.needed:
+            return
+        auto = automatic and judging.automatic(judgement, settings.auto_approve, settings.auto_approve_growth)
+        now = time.time()
+        self.db.execute(
+            "INSERT INTO approvals (hustle, version, baseline, reasons, waiting, state, automatic, created, decided)"
+            " VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            (hustle_id, hustle.version, hustle.confirmed_version, json.dumps(judgement.reasons()),
+             json.dumps(judgement.waiting()), "approved" if auto else "pending", int(auto), now, now if auto else None),
+        )
+        if auto:
+            self.db.execute("UPDATE hustles SET confirmed_version = ? WHERE id = ?", (hustle.version, hustle_id))
+
+    def _pending(self, approval_id: int) -> Approval:
+        approval = self.approval(approval_id)
+        if approval.state != "pending":
+            raise ValueError(f"approval {approval_id} is {approval.state}, not pending")
+        return approval
+
+    @staticmethod
+    def _approval(row: sqlite3.Row) -> Approval:
+        return Approval(**{**dict(row), "reasons": json.loads(row["reasons"]), "waiting": json.loads(row["waiting"]),
+                           "automatic": bool(row["automatic"])})
 
     def _check(self, increments: list[Increment]) -> None:
         settings = self.settings()
@@ -411,6 +529,9 @@ class Store:
                WHERE p.hustle = ? AND p.version = ? ORDER BY p.position""",
             (hustle_id, version),
         ).fetchall()
+        pending = self.db.execute("SELECT waiting FROM approvals WHERE hustle = ? AND state = 'pending'",
+                                  (hustle_id,)).fetchone()
+        waiting = json.loads(pending["waiting"]) if pending else {}
         return [
             Increment(
                 id=r["id"],
@@ -423,7 +544,7 @@ class Store:
                 mode=r["mode"],
                 attempts=r["attempts"],
                 peak_context=r["peak_context"],
-                held="overseer" if r["overseen"] else "",
+                held="overseer" if r["overseen"] else waiting.get(r["id"], ""),
             )
             for r in rows
         ]

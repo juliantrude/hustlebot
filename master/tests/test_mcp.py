@@ -20,8 +20,8 @@ from hustlemaster.store import Store
 
 from test_store import inc, valid_plan
 
-DASHBOARD_ONLY = ["approve", "set_weight", "set_active", "activate", "update_settings", "set_total_points",
-                  "set_allow_fable", "confirm"]
+DASHBOARD_ONLY = ["approve", "reject", "revoke", "approvals", "set_weight", "set_active", "activate",
+                  "update_settings", "set_total_points", "set_allow_fable", "confirm"]
 
 
 def spec(increments):

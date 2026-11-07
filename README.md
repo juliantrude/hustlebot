@@ -6,7 +6,7 @@
 
 **Give Claude Code a goal. hustlebot plans it, works it in parallel headless sessions and merges only verified results — across usage limits, on your subscription.**
 
-Dependency plans · parallel sessions · weighted hustles · local or on a VM
+Dependency plans · parallel increments within a hustle · parallel hustles by weight · local or on a VM
 
 </div>
 

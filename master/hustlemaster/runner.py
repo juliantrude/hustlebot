@@ -139,6 +139,7 @@ class Outcome:
     duration_ms: int = 0
     permission_denials: list = field(default_factory=list)
     api_error_status: int | None = None
+    cost_usd: float = 0.0  # the session's `total_cost_usd`, what the usage reader accounts with (ADR 0012)
     rate_limit: dict | None = None  # the stream's last `rate_limit_info`, for the usage reader (ADR 0012)
 
 
@@ -191,7 +192,8 @@ def read_stream(lines: list[str], exit_code: int | None) -> Outcome:
                    session_id=result.get("session_id"), num_turns=result.get("num_turns", 0),
                    duration_ms=result.get("duration_ms", 0),
                    permission_denials=result.get("permission_denials") or [],
-                   api_error_status=result.get("api_error_status"), rate_limit=rate_limit)
+                   api_error_status=result.get("api_error_status"), cost_usd=result.get("total_cost_usd") or 0.0,
+                   rate_limit=rate_limit)
 
 
 class Hustlebot:

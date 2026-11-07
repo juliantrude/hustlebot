@@ -1,8 +1,8 @@
 "use strict";
 // Cinema view (/cinema): the always-on display. No controls, pure black for OLED. The energy core on the left
-// feeds one beam per chain; each beam bends into its chain's lane and runs on as that lane: the last hour of
-// sessions pulses inside it like a waveform, and it ends in the chain's graph, where sparks hit the increments that
-// are running right now. Inactive chains are ghost lanes without a beam.
+// feeds one beam per hustle; each beam bends into its hustle's lane and runs on as that lane: the last hour of
+// sessions pulses inside it like a waveform, and it ends in the hustle's graph, where sparks hit the increments that
+// are running right now. Inactive hustles are ghost lanes without a beam.
 
 (() => {
   const NEON = { haiku: "#00f0ff", sonnet: "#ffb300", opus: "#b46bff", fable: "#ff3dbd" };
@@ -14,7 +14,7 @@
   const ctx = canvas.getContext("2d");
   let state = null;
   const sparks = [];
-  const shown = new Map(); // chain id -> smoothed thickness, so lanes swell and fade instead of jumping
+  const shown = new Map(); // hustle id -> smoothed thickness, so lanes swell and fade instead of jumping
   let last = performance.now();
 
   async function poll() {
@@ -56,19 +56,19 @@
   // --- scene geometry ------------------------------------------------------------------------------------------
   function geometry(W, H) {
     const core = { x: W * 0.11, y: H * 0.5, r: Math.min(W, H) * 0.085 };
-    const chains = [...state.chains].sort((a, b) => (b.active - a.active) || (b.share - a.share) || b.weight - a.weight);
-    const n = chains.length;
+    const hustles = [...state.hustles].sort((a, b) => (b.active - a.active) || (b.share - a.share) || b.weight - a.weight);
+    const n = hustles.length;
     const top = H * 0.12, bottom = H * 0.92;
     const gap = (bottom - top) / Math.max(1, n);
     const perPoint = (H * 0.12) / state.total_points;
     const laneX = W * 0.3, dagX = W * 0.66, endX = W * 0.95;
     // trunk at the core: beams stacked in lane order
-    const lanes = chains.map((c, i) => {
+    const lanes = hustles.map((c, i) => {
       const target = c.share > 0 ? Math.min(gap * 0.4, c.share * perPoint) : c.active && c.status === "blocked" ? 1.5 : 0;
       const prev = shown.get(c.id) ?? target;
       const thick = prev + (target - prev) * 0.06; // ease towards the new share
       shown.set(c.id, thick);
-      return { chain: c, y: top + gap * (i + 0.5), thick, gap };
+      return { hustle: c, y: top + gap * (i + 0.5), thick, gap };
     });
     const trunk = lanes.reduce((s, l) => s + l.thick, 0);
     let y0 = core.y - trunk / 2;
@@ -107,7 +107,7 @@
 
   // --- drawing -------------------------------------------------------------------------------------------------
   function drawLane(g, l, now) {
-    const c = l.chain, t = now / 1000;
+    const c = l.hustle, t = now / 1000;
     const live = l.thick > 0.5;
     const half = Math.max(0.75, l.thick / 2);
     if (live && c.share > 0) {
@@ -188,7 +188,7 @@
   }
 
   function drawGraph(g, l, now, dim) {
-    const c = l.chain, t = now / 1000;
+    const c = l.hustle, t = now / 1000;
     const lay = layoutGraph(c.increments);
     const x0 = g.dagX + 18, x1 = g.endX;
     const colW = lay.layers > 1 ? (x1 - x0) / (lay.layers - 1) : 0;
@@ -320,13 +320,13 @@
   }
 
   function drawSparks(g, dt) {
-    const byId = new Map(g.lanes.map((l) => [l.chain.id, l]));
+    const byId = new Map(g.lanes.map((l) => [l.hustle.id, l]));
     if (!reduced) {
       for (const l of g.lanes) {
-        if (!(l.chain.share > 0)) continue;
-        for (const s of l.chain.sessions) {
+        if (!(l.hustle.share > 0)) continue;
+        for (const s of l.hustle.sessions) {
           if (Math.random() < dt * s.points * 1.8) {
-            sparks.push({ chain: l.chain.id, model: s.model, target: s.increment, t: 0, v: 0.22 + Math.random() * 0.12, off: (Math.random() - 0.5) * 0.8 });
+            sparks.push({ hustle: l.hustle.id, model: s.model, target: s.increment, t: 0, v: 0.22 + Math.random() * 0.12, off: (Math.random() - 0.5) * 0.8 });
           }
         }
       }
@@ -335,7 +335,7 @@
     ctx.globalCompositeOperation = "lighter";
     for (let i = sparks.length - 1; i >= 0; i--) {
       const s = sparks[i];
-      const l = byId.get(s.chain);
+      const l = byId.get(s.hustle);
       s.t += s.v * dt;
       const node = l && l.nodes && l.nodes[s.target];
       if (!l || !node || s.t >= 1.25) {
@@ -381,7 +381,7 @@
     const g = geometry(W, H);
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
-    for (const l of g.lanes) if (l.chain.share > 0) drawLaneBeamOnly(g, l);
+    for (const l of g.lanes) if (l.hustle.share > 0) drawLaneBeamOnly(g, l);
     ctx.restore();
     for (const l of g.lanes) drawLane(g, l, now);
     drawSparks(g, dt);

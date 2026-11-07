@@ -1,4 +1,4 @@
-"""Chains, increments and the session points of a model."""
+"""Hustles, increments and the session points of a model."""
 
 from __future__ import annotations
 
@@ -22,12 +22,12 @@ class Increment:
 
 
 @dataclass
-class Chain:
+class Hustle:
     id: str
     project: str
     title: str
     active: bool
-    weight: int  # its share among the active chains, like a CSS grid `fr`
+    weight: int  # its share among the active hustles, like a CSS grid `fr`
     increments: list[Increment]
 
     def running(self) -> list[Increment]:
@@ -54,9 +54,9 @@ class Chain:
         return "waiting"
 
 
-def shares(chains: list[Chain], total: int) -> dict[str, float]:
-    """Guaranteed points per chain: the total split by weight among the chains that are active and have
-    something ready or running. Inactive or fully blocked chains hold no share."""
-    pool = [c for c in chains if c.active and (c.running() or c.ready())]
+def shares(hustles: list[Hustle], total: int) -> dict[str, float]:
+    """Guaranteed points per hustle: the total split by weight among the hustles that are active and have
+    something ready or running. Inactive or fully blocked hustles hold no share."""
+    pool = [c for c in hustles if c.active and (c.running() or c.ready())]
     weights = sum(c.weight for c in pool)
     return {c.id: (total * c.weight / weights if weights else 0.0) for c in pool}

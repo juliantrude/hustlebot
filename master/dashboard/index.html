@@ -13,7 +13,7 @@
   <ul id="approvalList"></ul>
  </section>
 
- <h2>Chains</h2>
+ <h2>Hustles</h2>
  <div class="flow">
   <div class="core-col">
    <canvas id="flow" aria-hidden="true"></canvas>
@@ -27,19 +27,19 @@
     <div class="muted" id="pointsText"></div>
    </div>
   </div>
-  <div id="chains"></div>
+  <div id="hustles"></div>
  </div>
 </div>
 
 <div id="overlay" hidden>
- <div class="overlay-bar"><button type="button" id="overlayClose" class="back">← Chains</button><span id="overlayTitle"></span></div>
- <iframe id="overlayFrame" title="Chain graph"></iframe><!-- replaced per chain by app.js -->
+ <div class="overlay-bar"><button type="button" id="overlayClose" class="back">← Hustles</button><span id="overlayTitle"></span></div>
+ <iframe id="overlayFrame" title="Hustle graph"></iframe><!-- replaced per hustle by app.js -->
 </div>
 
-<template id="chainCard">
- <article class="chain">
+<template id="hustleCard">
+ <article class="hustle">
   <label class="switch" title="active / inactive"><input type="checkbox" class="active"><span></span></label>
-  <div class="weight" title="weight (share among active chains)">
+  <div class="weight" title="weight (share among active hustles)">
    <button type="button" data-weight="-1" aria-label="lower weight">−</button><span class="w"></span><button type="button" data-weight="1" aria-label="higher weight">+</button>
    <div class="share muted"></div>
   </div>

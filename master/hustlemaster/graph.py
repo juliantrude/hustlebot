@@ -1,9 +1,9 @@
-"""A chain as a graph-engine/1 document (../graph-engine, docs/format.md): one node type per model,
+"""A hustle as a graph-engine/1 document (../graph-engine, docs/format.md): one node type per model,
 one state per increment state, the instructions in the click panel."""
 
 from __future__ import annotations
 
-from .model import POINTS, Chain
+from .model import POINTS, Hustle
 
 # Colour slots of the engine, chosen to stay clear of the state colours (green, blue, red, grey).
 MODEL_TYPES = [
@@ -21,12 +21,12 @@ STATES = [
 ]
 
 
-def graph_doc(chain: Chain) -> dict:
-    done = sum(i.state == "done" for i in chain.increments)
+def graph_doc(hustle: Hustle) -> dict:
+    done = sum(i.state == "done" for i in hustle.increments)
     return {
         "schema": "graph-engine/1",
-        "title": chain.title,
-        "subtitle": f"{chain.project} · {done}/{len(chain.increments)} done",
+        "title": hustle.title,
+        "subtitle": f"{hustle.project} · {done}/{len(hustle.increments)} done",
         "storage_key": "hustlebot-theme",
         "words": {
             "nodes": "increments",
@@ -45,7 +45,7 @@ def graph_doc(chain: Chain) -> dict:
                     {"label": "Model", "lines": [f"{i.model} · {POINTS[i.model]} points"]},
                 ],
             }
-            for i in chain.increments
+            for i in hustle.increments
         ],
-        "edges": [{"from": dep, "to": i.id} for i in chain.increments for dep in i.after],
+        "edges": [{"from": dep, "to": i.id} for i in hustle.increments for dep in i.after],
     }

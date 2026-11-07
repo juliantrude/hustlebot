@@ -1,8 +1,8 @@
-"""Made-up chains, usage and approvals for the dashboard while the scheduler does not exist yet."""
+"""Made-up hustles, usage and approvals for the dashboard while the scheduler does not exist yet."""
 
 from __future__ import annotations
 
-from .model import Chain, Increment
+from .model import Hustle, Increment
 
 
 def _inc(id, title, model, after="", state="open", text=None):
@@ -16,16 +16,16 @@ def _inc(id, title, model, after="", state="open", text=None):
     )
 
 
-def chains() -> list[Chain]:
+def hustles() -> list[Hustle]:
     return [
-        Chain(
+        Hustle(
             id="hb-master",
             project="hustlebot",
-            title="Multi-chain master",
+            title="Hustlemaster v2",
             active=True,
             weight=2,
             increments=[
-                _inc("A", "Data model for chains", "opus", state="done"),
+                _inc("A", "Data model for hustles", "opus", state="done"),
                 _inc("B", "Graph file format in the repo", "sonnet", "A", "done"),
                 _inc("C", "Session runner (child processes)", "opus", "B", "running",
                      ["Start `claude -p` per increment as a child process with cwd = its worktree.",
@@ -42,7 +42,7 @@ def chains() -> list[Chain]:
                 _inc("L", "Dashboard design pass", "sonnet", "G"),
             ],
         ),
-        Chain(
+        Hustle(
             id="fl-sync",
             project="final_lift",
             title="Workout sync API",
@@ -59,7 +59,7 @@ def chains() -> list[Chain]:
                 _inc("H", "Load test", "opus", "D F"),
             ],
         ),
-        Chain(
+        Hustle(
             id="adm-graph",
             project="admiralty",
             title="Solution graph v2",
@@ -74,7 +74,7 @@ def chains() -> list[Chain]:
                 _inc("D", "Key Action ranking update", "opus", "B C"),
             ],
         ),
-        Chain(
+        Hustle(
             id="ari-search",
             project="ariadne",
             title="Docs search",
@@ -87,7 +87,7 @@ def chains() -> list[Chain]:
                 _inc("D", "Ranking", "opus", "B"),
             ],
         ),
-        Chain(
+        Hustle(
             id="hb-docs",
             project="hustlebot",
             title="README overhaul",
@@ -104,12 +104,12 @@ def chains() -> list[Chain]:
 APPROVALS = [
     {
         "id": "ap1",
-        "chain": "hb-master",
+        "hustle": "hb-master",
         "text": "Split I into I1 (weights) and I2 (deficit round robin); I2 switches from Opus to Fable.",
     },
     {
         "id": "ap2",
-        "chain": "fl-sync",
+        "hustle": "fl-sync",
         "text": "Add 3 increments for a retry policy (graph grows from 5 to 8).",
     },
 ]

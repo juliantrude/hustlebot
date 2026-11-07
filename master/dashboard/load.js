@@ -1,6 +1,6 @@
 "use strict";
-// The load strip of a chain card: one LED segment per session point, coloured by model. The column on the right is
-// now; to its left the last minutes scroll away and fade. The dashed line is the chain's share, segments above it
+// The load strip of a hustle card: one LED segment per session point, coloured by model. The column on the right is
+// now; to its left the last minutes scroll away and fade. The dashed line is the hustle's share, segments above it
 // are borrowed points. Sessions ignite segment by segment when they start and flash green when they finish.
 
 const Load = (() => {
@@ -19,7 +19,7 @@ const Load = (() => {
   let tickSeconds = 2;
   let tickAt = performance.now(); // when the last tick arrived
   let lastTick = -1;
-  const strips = new Map(); // chain id -> { canvas, chain, seen: Map(key -> first seen ms), flashes: [] }
+  const strips = new Map(); // hustle id -> { canvas, hustle, seen: Map(key -> first seen ms), flashes: [] }
 
   const key = (s) => `${s.increment}@${s.started}`;
 
@@ -32,14 +32,14 @@ const Load = (() => {
     }
   }
 
-  function update(id, canvas, chain) {
+  function update(id, canvas, hustle) {
     let strip = strips.get(id);
     if (!strip) {
-      strip = { canvas, chain, seen: new Map(), flashes: [], first: true };
+      strip = { canvas, hustle, seen: new Map(), flashes: [], first: true };
       strips.set(id, strip);
     }
     const now = performance.now();
-    const keys = new Set(chain.sessions.map(key));
+    const keys = new Set(hustle.sessions.map(key));
     // finished: sessions that were running and are gone
     for (const [k, info] of strip.seen) {
       if (!keys.has(k)) {
@@ -49,14 +49,14 @@ const Load = (() => {
     }
     // started: sessions we have not seen (on the first data they are just there, no ignition)
     let from = 0;
-    for (const s of [...chain.sessions].sort((a, b) => a.started - b.started)) {
+    for (const s of [...hustle.sessions].sort((a, b) => a.started - b.started)) {
       const k = key(s);
       if (!strip.seen.has(k)) strip.seen.set(k, { at: strip.first ? -1e9 : now });
       Object.assign(strip.seen.get(k), { from, points: s.points });
       from += s.points;
     }
     strip.first = false;
-    strip.chain = chain;
+    strip.hustle = hustle;
     strip.canvas = canvas;
   }
 
@@ -74,7 +74,7 @@ const Load = (() => {
 
   function draw(strip, now) {
     const { ctx, w, h } = sizeFor(strip.canvas);
-    const chain = strip.chain;
+    const hustle = strip.hustle;
     ctx.clearRect(0, 0, w, h);
     const seg = (h - 2) / total; // height of one point
     const yOf = (p) => h - 1 - p * seg; // bottom of point p
@@ -83,10 +83,10 @@ const Load = (() => {
     const colW = trailW / cols;
     const scroll = reduced ? 0 : Math.min(1, (now - tickAt) / (tickSeconds * 1000)) * colW;
     const t = now / 1000;
-    const idle = !chain.active || chain.status === "done";
+    const idle = !hustle.active || hustle.status === "done";
 
     // trail: one column per minute, oldest left, fading with age
-    const hist = chain.history;
+    const hist = hustle.history;
     hist.forEach((column, i) => {
       const age = hist.length - 1 - i; // 0 = newest
       const x = trailW - (age + 1) * colW - scroll + colW;
@@ -114,7 +114,7 @@ const Load = (() => {
       ctx.fillStyle = EMPTY;
       ctx.fillRect(x0, yOf(p + 1) + 0.5, LIVE_W, seg - 1);
     }
-    for (const s of [...chain.sessions].sort((a, b) => a.started - b.started)) {
+    for (const s of [...hustle.sessions].sort((a, b) => a.started - b.started)) {
       const info = strip.seen.get(key(s));
       if (!info) continue;
       const since = now - info.at;
@@ -145,9 +145,9 @@ const Load = (() => {
       ctx.restore();
     }
 
-    // share: dashed line; points above it are borrowed from chains that cannot use them
-    if (chain.share > 0) {
-      const y = Math.round(yOf(chain.share)) + 0.5;
+    // share: dashed line; points above it are borrowed from hustles that cannot use them
+    if (hustle.share > 0) {
+      const y = Math.round(yOf(hustle.share)) + 0.5;
       ctx.save();
       ctx.strokeStyle = "rgba(200,208,220,0.55)";
       ctx.setLineDash([3, 3]);
@@ -156,18 +156,18 @@ const Load = (() => {
       ctx.lineTo(w, y);
       ctx.stroke();
       ctx.restore();
-      const used = chain.points_in_use;
-      if (used > chain.share) {
+      const used = hustle.points_in_use;
+      if (used > hustle.share) {
         ctx.save();
         ctx.strokeStyle = "#f0b74d";
         ctx.lineWidth = 1.5;
-        ctx.strokeRect(x0 - 2.5, yOf(used) - 0.5, LIVE_W + 5, (used - chain.share) * seg);
+        ctx.strokeRect(x0 - 2.5, yOf(used) - 0.5, LIVE_W + 5, (used - hustle.share) * seg);
         ctx.restore();
       }
     }
 
-    // a hard-blocked chain flickers red at the base of now
-    if (chain.status === "blocked") {
+    // a hard-blocked hustle flickers red at the base of now
+    if (hustle.status === "blocked") {
       const on = reduced || Math.random() > 0.12;
       ctx.save();
       ctx.globalAlpha = on ? 0.55 + 0.35 * Math.abs(Math.sin(t * 5)) : 0.1;
@@ -177,7 +177,7 @@ const Load = (() => {
       ctx.fillRect(x0, h - 3, LIVE_W, 2);
       ctx.restore();
     }
-    // inactive chains breathe faintly
+    // inactive hustles breathe faintly
     strip.canvas.style.opacity = idle && !reduced ? String(0.55 + 0.15 * Math.sin(t * 1.2)) : "";
   }
 

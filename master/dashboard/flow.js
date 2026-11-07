@@ -1,8 +1,8 @@
 "use strict";
-// The energy core: one pulsing orb for the user's subscription, beams flowing out of it into the active chains.
+// The energy core: one pulsing orb for the user's subscription, beams flowing out of it into the active hustles.
 // The orb's brightness follows the total session points (how fast the session burns), its rings the 5h (inner) and
-// week (outer) usage. Each beam is as thick as the chain's share of the points, like a Sankey diagram; sparks run
-// along it in the colours of the models that are running in that chain right now.
+// week (outer) usage. Each beam is as thick as the hustle's share of the points, like a Sankey diagram; sparks run
+// along it in the colours of the models that are running in that hustle right now.
 
 const Flow = (() => {
   const MODEL = { haiku: "#4cc9d8", sonnet: "#d8a548", opus: "#a78bfa", fable: "#e46fb8" };
@@ -13,7 +13,7 @@ const Flow = (() => {
 
   let state = null;
   let cards = new Map();
-  const sparks = []; // { chain, model, t: 0..1, speed }
+  const sparks = []; // { hustle, model, t: 0..1, speed }
   let lastFrame = performance.now();
 
   function update(next, cardMap) {
@@ -39,23 +39,23 @@ const Flow = (() => {
     return { ctx, w, h };
   }
 
-  /** Beams: one per chain with a share, stacked at the core in card order, each ending at its card's left edge. */
+  /** Beams: one per hustle with a share, stacked at the core in card order, each ending at its card's left edge. */
   function beams(h, w) {
     const top = col.getBoundingClientRect().top;
-    const list = state.chains
+    const list = state.hustles
       .filter((c) => (c.share > 0 || (c.active && c.status === "blocked")) && cards.get(c.id))
       .map((c) => {
         const r = cards.get(c.id).getBoundingClientRect();
-        return { chain: c, y: r.top - top + r.height / 2, cardH: r.height };
+        return { hustle: c, y: r.top - top + r.height / 2, cardH: r.height };
       })
       .sort((a, b) => a.y - b.y);
     const perPoint = TRUNK_MAX / state.total_points;
     const cy = coreY(h);
-    const trunk = list.reduce((s, b) => s + b.chain.share * perPoint, 0);
+    const trunk = list.reduce((s, b) => s + b.hustle.share * perPoint, 0);
     let y = cy - trunk / 2;
     for (const b of list) {
-      b.dead = !(b.chain.share > 0); // active but blocked: a hairline that carries nothing
-      b.thick = b.dead ? 1.5 : Math.max(2, b.chain.share * perPoint);
+      b.dead = !(b.hustle.share > 0); // active but blocked: a hairline that carries nothing
+      b.thick = b.dead ? 1.5 : Math.max(2, b.hustle.share * perPoint);
       b.y0 = y + b.thick / 2;
       y += b.thick;
       b.x0 = CORE.x; // from the centre: the orb covers where the beams are born
@@ -169,7 +169,7 @@ const Flow = (() => {
         ctx.fill();
         continue;
       }
-      const burning = Math.min(1, b.chain.points_in_use / Math.max(1, b.chain.share));
+      const burning = Math.min(1, b.hustle.points_in_use / Math.max(1, b.hustle.share));
       const grad = ctx.createLinearGradient(b.x0, 0, b.x1, 0);
       const edge = Math.min(0.9, (CORE.r * 1.1) / (b.x1 - b.x0));
       grad.addColorStop(0, "rgba(120,200,255,0)");
@@ -194,16 +194,16 @@ const Flow = (() => {
     // sparks: per running session, a stream in the model's colour; denser for more points
     if (!reduced) {
       for (const b of list) {
-        for (const s of b.chain.sessions) {
-          if (!b.dead && Math.random() < dt * s.points * 1.6) sparks.push({ chain: b.chain.id, model: s.model, t: 0, speed: 0.35 + Math.random() * 0.25, off: (Math.random() - 0.5) * 0.8 });
+        for (const s of b.hustle.sessions) {
+          if (!b.dead && Math.random() < dt * s.points * 1.6) sparks.push({ hustle: b.hustle.id, model: s.model, t: 0, speed: 0.35 + Math.random() * 0.25, off: (Math.random() - 0.5) * 0.8 });
         }
       }
-      const byId = new Map(list.map((b) => [b.chain.id, b]));
+      const byId = new Map(list.map((b) => [b.hustle.id, b]));
       ctx.save();
       ctx.globalCompositeOperation = "lighter";
       for (let i = sparks.length - 1; i >= 0; i--) {
         const s = sparks[i];
-        const b = byId.get(s.chain);
+        const b = byId.get(s.hustle);
         s.t += s.speed * dt;
         if (!b || b.dead || s.t >= 1) {
           sparks.splice(i, 1);

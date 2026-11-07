@@ -23,13 +23,13 @@ button:hover{background:#24304a}
 #approvalList li .yes{border-color:#2f5c3a;color:#5ee08a}
 #approvalList li .no{border-color:#5c2f2f;color:#f07a7a}
 
-.chain{position:relative;display:grid;grid-template-columns:44px 74px 88px 90px minmax(120px,1fr) 110px minmax(240px,1.3fr) 220px;gap:14px;align-items:center;
+.hustle{position:relative;display:grid;grid-template-columns:44px 74px 88px 90px minmax(120px,1fr) 110px minmax(240px,1.3fr) 220px;gap:14px;align-items:center;
   background:#171a21;border:1px solid #232833;border-radius:10px;padding:10px 14px;margin-bottom:10px;cursor:pointer}
-.chain:hover{border-color:#34405a}
-.chain.inactive{opacity:.55}
-.chain .project{color:#8a94a6;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.chain .title{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.chain .progress .count{margin-top:2px}
+.hustle:hover{border-color:#34405a}
+.hustle.inactive{opacity:.55}
+.hustle .project{color:#8a94a6;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hustle .title{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hustle .progress .count{margin-top:2px}
 .weight{text-align:center}
 .weight .w{display:inline-block;min-width:22px;font-weight:600}
 .status{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;text-align:center;background:#1c2230;color:#9fb0c8}
@@ -51,13 +51,13 @@ button:hover{background:#24304a}
 .overlay-bar{display:flex;gap:16px;align-items:center;padding:8px 14px;border-bottom:1px solid #232833;color:#8a94a6;font-size:13px}
 #overlayFrame{flex:1;border:0;width:100%}
 
-@media(max-width:1100px){.chain{grid-template-columns:44px 78px 92px 1fr 150px;grid-auto-rows:auto}
-  .chain .project,.chain .load{display:none}.chain .preview{grid-column:1/-1}}
-#chains{display:flex;flex-direction:column}
+@media(max-width:1100px){.hustle{grid-template-columns:44px 78px 92px 1fr 150px;grid-auto-rows:auto}
+  .hustle .project,.hustle .load{display:none}.hustle .preview{grid-column:1/-1}}
+#hustles{display:flex;flex-direction:column}
 .back{width:auto;height:30px;padding:0 14px;font-size:13px}
 .load{width:100%;height:64px;display:block}
 
-/* energy core and its flows into the chains */
+/* energy core and its flows into the hustles */
 .flow{display:grid;grid-template-columns:380px 1fr;align-items:stretch}
 .core-col{position:relative;min-height:420px}
 #flow{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}

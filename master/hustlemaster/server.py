@@ -1,6 +1,6 @@
 """The master's web app on 127.0.0.1: the dashboard, its JSON API and the graph-engine page.
 
-    python3 -m hustlebot_master.server --mock     # from master/; made-up chains (mock.py)
+    python3 -m hustlemaster.server --mock     # from master/; made-up hustles (mock.py)
 """
 
 from __future__ import annotations
@@ -35,13 +35,13 @@ def engine_page() -> Path:
 class State:
     def __init__(self) -> None:
         self.total_points = 20
-        self.chains = mock.chains()
+        self.hustles = mock.hustles()
         self.approvals = list(mock.APPROVALS)
-        self.sim = Sim(self.chains, self.total_points)
+        self.sim = Sim(self.hustles, self.total_points)
         self.sim.run_forever()
 
-    def chain(self, chain_id: str):
-        return next((c for c in self.chains if c.id == chain_id), None)
+    def hustle(self, hustle_id: str):
+        return next((c for c in self.hustles if c.id == hustle_id), None)
 
     def summary(self) -> dict:
         with self.sim.lock:
@@ -49,18 +49,18 @@ class State:
 
     def _summary(self) -> dict:
         sim = self.sim
-        share = shares(self.chains, self.total_points)
-        order = sorted(self.chains, key=lambda c: (not c.active, -c.weight, c.title))
+        share = shares(self.hustles, self.total_points)
+        order = sorted(self.hustles, key=lambda c: (not c.active, -c.weight, c.title))
         return {
             "total_points": self.total_points,
-            "points_in_use": sum(c.points_in_use() for c in self.chains),
+            "points_in_use": sum(c.points_in_use() for c in self.hustles),
             "model_points": POINTS,
             "tick": sim.tick,
             "tick_seconds": TICK_SECONDS,
             "events": sim.events,
             "usage": sim.usage,
             "approvals": self.approvals,
-            "chains": [
+            "hustles": [
                 {
                     "id": c.id,
                     "project": c.project,
@@ -102,7 +102,7 @@ def make_handler(state: State, engine: Path):
 
         def do_GET(self) -> None:
             path = self.path.split("?", 1)[0]
-            if re.fullmatch(r"/chains/[\w-]+", path):
+            if re.fullmatch(r"/hustles/[\w-]+", path):
                 path = "/"  # a route of the dashboard: the page itself, app.js shows the graph
             if path in STATIC:
                 file = DASHBOARD / STATIC[path]
@@ -111,9 +111,9 @@ def make_handler(state: State, engine: Path):
                 return self._send(200, engine.read_bytes(), "text/html")
             if path == "/api/state":
                 return self._json(state.summary())
-            match = re.fullmatch(r"/api/chains/([\w-]+)/graph\.json", path)
-            if match and (chain := state.chain(match.group(1))):
-                return self._json(graph_doc(chain))
+            match = re.fullmatch(r"/api/hustles/([\w-]+)/graph\.json", path)
+            if match and (hustle := state.hustle(match.group(1))):
+                return self._json(graph_doc(hustle))
             self._json({"error": "not found"}, 404)
 
         def do_POST(self) -> None:
@@ -122,12 +122,12 @@ def make_handler(state: State, engine: Path):
             if self.path == "/api/settings":
                 state.total_points = state.sim.total_points = max(1, int(body.get("total_points", state.total_points)))
                 return self._json(state.summary())
-            match = re.fullmatch(r"/api/chains/([\w-]+)", self.path)
-            if match and (chain := state.chain(match.group(1))):
+            match = re.fullmatch(r"/api/hustles/([\w-]+)", self.path)
+            if match and (hustle := state.hustle(match.group(1))):
                 if "active" in body:
-                    chain.active = bool(body["active"])
+                    hustle.active = bool(body["active"])
                 if "weight" in body:
-                    chain.weight = max(1, int(body["weight"]))
+                    hustle.weight = max(1, int(body["weight"]))
                 return self._json(state.summary())
             match = re.fullmatch(r"/api/approvals/([\w-]+)", self.path)
             if match:
@@ -140,7 +140,7 @@ def make_handler(state: State, engine: Path):
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--mock", action="store_true", help="serve made-up chains (the only mode so far)")
+    parser.add_argument("--mock", action="store_true", help="serve made-up hustles (the only mode so far)")
     parser.add_argument("--port", type=int, default=8765)
     args = parser.parse_args()
     if not args.mock:
@@ -149,7 +149,7 @@ def main() -> None:
     if not engine.is_file():
         parser.error(f"graph-engine page not found at {engine}")
     server = ThreadingHTTPServer(("127.0.0.1", args.port), make_handler(State(), engine))
-    print(f"hustlebot master (mock) on http://127.0.0.1:{args.port}/")
+    print(f"hustlemaster (mock) on http://127.0.0.1:{args.port}/")
     server.serve_forever()
 
 

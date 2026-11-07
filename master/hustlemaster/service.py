@@ -225,7 +225,8 @@ class Service:
                 note = "\n\n".join(filter(None, [self.budget.resume(hustle.id, inc.id),
                                                  self.store.take_note(hustle.id, inc.id)])) or None
             bot = self.runner.start(hustle, inc, wt.path, allow_fable=settings.allow_fable, note=note,
-                                    extra_env=runner.read_env(self.env_dir / f"{Path(hustle.project).name}.env"))
+                                    extra_env=runner.read_env(self.env_dir / f"{Path(hustle.project).name}.env"),
+                                    extra_mcp=runner.read_mcp(self.env_dir / f"{Path(hustle.project).name}.mcp.json"))
         except Exception as err:
             # a missing repo, a model switched off since: retrying each pass would fail the same way
             log.warning("could not start %s/%s: %s", hustle.id, start.increment, err)

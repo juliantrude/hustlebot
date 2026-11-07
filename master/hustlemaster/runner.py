@@ -259,7 +259,8 @@ class Runner:
         self.permission_mode = permission_mode
 
     def start(self, hustle: Hustle, increment: Increment, worktree: Path | str, *, allow_fable: bool,
-              note: str | None = None, extra_env: dict[str, str] | None = None) -> Hustlebot:
+              note: str | None = None, extra_env: dict[str, str] | None = None,
+              extra_mcp: dict | None = None) -> Hustlebot:
         if increment.model == "fable" and not allow_fable:
             # the plan was valid when it was stored; the setting may have been switched off since (ADR 0014)
             raise PermissionError(f"increment {increment.id} needs Fable, and allow_fable is off")
@@ -267,7 +268,9 @@ class Runner:
         text = prompt(hustle, increment, note)
         (run_dir / "prompt.md").write_text(text)
         config = run_dir / "mcp.json"
-        config.write_text(json.dumps(self.mcp_config))
+        # the project's own servers (e.g. its notes service) beside the hustlemaster's, which they cannot replace
+        servers = {**(extra_mcp or {}), **self.mcp_config["mcpServers"]}
+        config.write_text(json.dumps({**self.mcp_config, "mcpServers": servers}))
         token = self.tokens.issue(increment.mode, hustle.id, increment.id)
         env = {**(self.env if self.env is not None else os.environ), **(extra_env or {}), TOKEN_ENV: token}
         argv = command(increment, text, plugin_dir=self.plugin_dir, mcp_config=config, claude=self.claude,
@@ -308,6 +311,16 @@ def read_env(path: Path) -> dict[str, str]:
         if key.isidentifier():
             found[key] = value
     return found
+
+
+def read_mcp(path: Path) -> dict:
+    """A project's extra MCP servers: the `mcpServers` object of a Claude Code MCP config file, or {}."""
+    if not path.is_file():
+        return {}
+    servers = json.loads(path.read_text()).get("mcpServers", {})
+    if not isinstance(servers, dict):
+        raise ValueError(f"{path}: mcpServers must be an object")
+    return servers
 
 
 def _runs_of(runs: Path | str, hustle: str, increment: str) -> Path:

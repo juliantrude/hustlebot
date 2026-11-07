@@ -17,12 +17,13 @@ from pathlib import PurePath
 from .budget import target
 from .model import POINTS
 from .scheduler import Session, in_use, shares
-from .store import Store
+from .store import AUTO_APPROVE, Store
 from .usage import SESSION, WEEK, Usage
 
 TICK_SECONDS = 2.0
 HISTORY = 60  # ticks of history per hustle
 EVENTS = 5  # ticks a started/done event stays in the state
+AUTO_APPROVED = 10  # automatic approvals listed, newest first
 
 
 @dataclass(frozen=True)
@@ -99,10 +100,13 @@ class Live:
             "events": events,
             "usage": {SESSION: self._window(SESSION), WEEK: self._window(WEEK, settings.week_target)},
             "thresholds": {"session": settings.session_threshold, "week": settings.week_target},
+            "settings": {"allow_fable": settings.allow_fable, "auto_approve": settings.auto_approve,
+                         "auto_approve_growth": settings.auto_approve_growth, "auto_approve_modes": list(AUTO_APPROVE)},
             "approvals": [
                 {"id": str(a.id), "hustle": a.hustle, "text": "; ".join(a.reasons)}
                 for a in self.store.approvals(states=("pending",)) if a.hustle in titles
             ],
+            "auto_approved": self._auto_approved(titles),
             "hustles": [
                 {
                     "id": h.id,
@@ -130,6 +134,17 @@ class Live:
                 for h in order
             ],
         }
+
+    def _auto_approved(self, hustles: dict) -> list[dict]:
+        # Every automatic approval stays visible until revoked (ADR 0015); only the one the plan is confirmed on
+        # can be taken back, since a later confirmation built on it. Revoking that one makes the one before it
+        # the latest again.
+        found = [a for a in self.store.approvals(states=("approved",)) if a.automatic and a.hustle in hustles]
+        return [
+            {"id": str(a.id), "hustle": a.hustle, "text": "; ".join(a.reasons), "when": _when(datetime.fromtimestamp(a.created, timezone.utc)),
+             "revocable": hustles[a.hustle].confirmed_version == a.version}
+            for a in sorted(found, key=lambda a: -a.id)[:AUTO_APPROVED]
+        ]
 
     def _window(self, name: str, week_target: int | None = None) -> dict:
         estimate = self.usage.estimate(name)

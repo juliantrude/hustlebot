@@ -23,7 +23,24 @@ DASHBOARD = Path(__file__).resolve().parent.parent / "dashboard"
 STATIC = {"/": "index.html", "/app.js": "app.js", "/load.js": "load.js", "/flow.js": "flow.js", "/app.css": "app.css",
           "/thresholds.js": "thresholds.js", "/cinema": "cinema.html", "/cinema.js": "cinema.js"}
 TYPES = {".html": "text/html", ".js": "text/javascript", ".css": "text/css"}
-SETTINGS = ("total_points", "session_threshold", "week_target")  # what the dashboard may write, all integers
+
+
+def _flag(value) -> bool:
+    # bool("false") is True: only a JSON boolean switches Fable on
+    if not isinstance(value, bool):
+        raise TypeError("must be true or false")
+    return value
+
+
+def _word(value) -> str:
+    if not isinstance(value, str):
+        raise TypeError("must be a string")
+    return value
+
+
+# what the dashboard may write, each with how a JSON value becomes the setting; the store checks the ranges
+SETTINGS = {"total_points": int, "session_threshold": int, "week_target": int, "allow_fable": _flag,
+            "auto_approve": _word, "auto_approve_growth": int}
 
 
 def engine_page() -> Path:
@@ -73,7 +90,7 @@ def make_handler(live: Live, engine: Path):
             store = live.store
             try:
                 if self.path == "/api/settings":
-                    changes = {key: int(body[key]) for key in SETTINGS if key in body}
+                    changes = {key: convert(body[key]) for key, convert in SETTINGS.items() if key in body}
                     if "total_points" in changes:
                         changes["total_points"] = max(1, changes["total_points"])
                     # one call, so an invalid value rejects the whole request
@@ -88,9 +105,10 @@ def make_handler(live: Live, engine: Path):
                     return self._json(live.summary())
                 match = re.fullmatch(r"/api/approvals/(\d+)", self.path)
                 if match:
-                    decide = {"yes": store.approve, "no": store.reject}.get(body.get("decision"))
+                    decisions = {"yes": store.approve, "no": store.reject, "revoke": store.revoke}
+                    decide = decisions.get(body.get("decision"))
                     if decide is None:
-                        return self._json({"error": "decision must be yes or no"}, 400)
+                        return self._json({"error": f"decision must be one of {', '.join(decisions)}"}, 400)
                     decide(int(match.group(1)))
                     return self._json(live.summary())
             except (KeyError, ValueError, TypeError) as e:

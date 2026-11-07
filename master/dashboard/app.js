@@ -87,6 +87,55 @@ function renderApprovals(list, hustles) {
   );
 }
 
+function renderAutoApproved(list, hustles) {
+  const title = new Map(hustles.map((c) => [c.id, `${c.project} · ${c.title}`]));
+  $("autoApproved").hidden = list.length === 0;
+  $("autoApprovedList").replaceChildren(
+    ...list.map((a) => {
+      const li = document.createElement("li");
+      const t = document.createElement("span");
+      t.className = "t";
+      t.textContent = `${title.get(a.hustle) || a.hustle}: ${a.text}`;
+      const when = document.createElement("span");
+      when.className = "muted";
+      when.textContent = a.when;
+      li.append(t, when);
+      if (a.revocable) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.className = "revoke";
+        b.textContent = "Revoke";
+        b.addEventListener("click", () => api(`/api/approvals/${a.id}`, { decision: "revoke" }).then(render));
+        li.append(b);
+      } else {
+        li.classList.add("settled");
+        li.title = "a later confirmation built on it";
+      }
+      return li;
+    })
+  );
+}
+
+function renderSettings(settings) {
+  $("allowFable").checked = settings.allow_fable;
+  const modes = $("autoApprove");
+  if (modes.childElementCount === 0) {
+    for (const mode of settings.auto_approve_modes) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.setAttribute("role", "radio");
+      b.dataset.mode = mode;
+      b.textContent = mode;
+      b.addEventListener("click", () => api("/api/settings", { auto_approve: mode }).then(render));
+      modes.append(b);
+    }
+  }
+  for (const b of modes.children) b.setAttribute("aria-checked", String(b.dataset.mode === settings.auto_approve));
+  $("growth").hidden = settings.auto_approve !== "limited";
+  $("growthValue").textContent = `${settings.auto_approve_growth} %`;
+  $("growthValue").dataset.value = settings.auto_approve_growth;
+}
+
 function render(state) {
   Load.global(state);
   $("corePct").textContent = `${Math.round(state.usage.session.percent)}%`;
@@ -95,6 +144,8 @@ function render(state) {
   $("points").textContent = state.total_points;
   $("pointsText").textContent = `${state.points_in_use} of ${state.total_points} session points burning`;
   renderApprovals(state.approvals, state.hustles);
+  renderAutoApproved(state.auto_approved, state.hustles);
+  renderSettings(state.settings);
   state.hustles.forEach((hustle, index) => (card(hustle).style.order = index));
   titles = new Map(state.hustles.map((c) => [c.id, `${c.project} · ${c.title}`]));
   route();
@@ -144,6 +195,14 @@ $("overlayClose").addEventListener("click", () => navigate("/"));
 document.addEventListener("keydown", closeOnEscape);
 document.querySelectorAll("[data-points]").forEach((b) =>
   b.addEventListener("click", () => api("/api/settings", { total_points: Number($("points").textContent) + Number(b.dataset.points) }).then(render))
+);
+
+$("allowFable").addEventListener("change", (e) => api("/api/settings", { allow_fable: e.target.checked }).then(render));
+document.querySelectorAll("[data-growth]").forEach((b) =>
+  b.addEventListener("click", () => {
+    const growth = Number($("growthValue").dataset.value) + Number(b.dataset.growth);
+    if (growth >= 0) api("/api/settings", { auto_approve_growth: growth }).then(render);
+  })
 );
 
 Thresholds.init((changes) => api("/api/settings", changes).then(render));

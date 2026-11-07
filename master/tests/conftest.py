@@ -74,3 +74,17 @@ def seed(store) -> dict[str, str]:
     grown[-1].after = ["C", "D", "E"]
     store.change_plan(master, grown, author="overseer", note="add E")
     return {"master": master, "sync": sync, "docs": docs}
+
+
+def auto_approve(store, hustle: str, *changes: tuple[str, ...]) -> None:
+    """Switch auto-approve to `all` and make each change: add one Opus increment per id, enough growth that every
+    change needs an approval and gets it automatically."""
+    from hustlemaster.model import Increment
+
+    store.update_settings(auto_approve="all")
+    for ids in changes:
+        *work, accept = store.hustle(hustle).increments
+        work += [Increment(id=id, title=f"Extra {id}", model="opus", instructions=[], after=[],
+                           prompt=f"Implement {id}.", mode="worker") for id in ids]
+        accept.after = [*accept.after, *ids]
+        store.change_plan(hustle, [*work, accept], author="overseer", note=f"add {', '.join(ids)}")

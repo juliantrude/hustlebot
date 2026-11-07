@@ -201,6 +201,8 @@ class Store:
             raise ValueError("thresholds are percentages between 0 and 100")
         if new.auto_approve not in AUTO_APPROVE:
             raise ValueError(f"auto_approve must be one of {AUTO_APPROVE}")
+        if new.auto_approve_growth < 0:
+            raise ValueError("auto_approve_growth is a percentage of growth, at least 0")
         with self.db:
             self.db.execute("BEGIN")
             for key, value in changes.items():

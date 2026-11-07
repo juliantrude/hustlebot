@@ -22,6 +22,11 @@ button:hover{background:#24304a}
 #approvalList li button{width:auto;padding:0 12px;height:28px}
 #approvalList li .yes{border-color:#2f5c3a;color:#5ee08a}
 #approvalList li .no{border-color:#5c2f2f;color:#f07a7a}
+#autoApprovedList{list-style:none;margin:0;padding:0}
+#autoApprovedList li{display:flex;align-items:center;gap:12px;background:#171a21;border:1px solid #232833;border-left:4px solid #5ab0f0;border-radius:10px;padding:8px 14px;margin-bottom:6px}
+#autoApprovedList li .t{flex:1}
+#autoApprovedList li.settled{opacity:.55}
+#autoApprovedList li .revoke{width:auto;padding:0 12px;height:26px;border-color:#5c2f2f;color:#f07a7a}
 
 .hustle{position:relative;display:grid;grid-template-columns:44px 74px 88px 90px minmax(120px,1fr) 110px minmax(240px,1.3fr) 220px;gap:14px;align-items:center;
   background:#171a21;border:1px solid #232833;border-radius:10px;padding:10px 14px;margin-bottom:10px;cursor:pointer}
@@ -82,3 +87,17 @@ button:hover{background:#24304a}
 .top{justify-content:space-between}
 .cinema-link{color:#8a94a6;font-size:13px;text-decoration:none;border:1px solid #2a3242;border-radius:6px;padding:4px 10px}
 .cinema-link:hover{color:#e6e6e6;border-color:#5ab0f0}
+/* settings under the points stepper: Fable and auto-approve */
+.settings{display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:14px;font-size:12px;color:#8a94a6}
+.setting{display:flex;align-items:center;gap:8px}
+.setting[hidden]{display:none}
+.setting .switch{width:32px;height:18px}
+.setting .switch span::before{width:12px;height:12px}
+.setting .switch input:checked+span::before{transform:translateX(14px);background:#e46fb8}
+.setting .switch input:checked+span{background:#4a1f3c}
+.setting .stepper{display:inline-flex;margin:0;gap:6px}
+.setting .stepper span{font-size:13px;min-width:38px}
+.segmented{display:inline-flex;border:1px solid #2a3242;border-radius:6px;overflow:hidden}
+.segmented button{width:auto;height:22px;padding:0 9px;border:0;border-radius:0;font-size:12px;background:transparent;color:#8a94a6}
+.segmented button+button{border-left:1px solid #2a3242}
+.segmented button[aria-checked="true"]{background:#24304a;color:#e6e6e6}

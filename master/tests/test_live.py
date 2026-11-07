@@ -15,7 +15,7 @@ from pathlib import Path
 
 import pytest
 
-from conftest import seed
+from conftest import auto_approve, seed
 from hustlemaster import live as living
 from hustlemaster.live import Live
 from hustlemaster.server import serve
@@ -192,9 +192,58 @@ def test_thresholds_are_written_together_and_rejected_together(app, store):
     assert call(url + "/api/settings", {"week_target": "lots"})[0] == 409
     assert call(url + "/api/settings", {"week_target": None})[0] == 409
     assert (store.settings().session_threshold, store.settings().week_target) == (70, 90)
-    # the dashboard may not write what has no control yet
-    call(url + "/api/settings", {"allow_fable": True, "auto_approve_growth": 90})
-    assert not store.settings().allow_fable and store.settings().auto_approve_growth == 25
+
+
+def test_fable_and_auto_approve_are_set_over_the_api(app, store):
+    url, _ = app
+    _, state = call(url + "/api/state")
+    assert state["settings"] == {"allow_fable": False, "auto_approve": "off", "auto_approve_growth": 25,
+                                 "auto_approve_modes": ["off", "limited", "all"]}
+    status, state = call(url + "/api/settings", {"allow_fable": True, "auto_approve": "limited",
+                                                 "auto_approve_growth": 40})
+    assert status == 200 and state["settings"]["allow_fable"] is True
+    assert (state["settings"]["auto_approve"], state["settings"]["auto_approve_growth"]) == ("limited", 40)
+    s = store.settings()
+    assert (s.allow_fable, s.auto_approve, s.auto_approve_growth) == (True, "limited", 40)
+    # only a JSON boolean switches Fable: the string "false" would be truthy
+    for bad in ({"allow_fable": "false"}, {"allow_fable": 0}, {"auto_approve": "sometimes"}, {"auto_approve": 1},
+                {"auto_approve_growth": -5}, {"auto_approve_growth": None}, {"allow_fable": False, "auto_approve": "x"}):
+        assert call(url + "/api/settings", bad)[0] == 409, bad
+    s = store.settings()
+    assert (s.allow_fable, s.auto_approve, s.auto_approve_growth) == (True, "limited", 40)
+    call(url + "/api/settings", {"allow_fable": False})
+    assert store.settings().allow_fable is False
+
+
+def test_automatic_approvals_are_listed_and_the_latest_can_be_revoked(app, store, ids):
+    url, _ = app
+    master = ids["master"]
+    auto_approve(store, master, ("F",), ("G", "H", "I"))
+    _, state = call(url + "/api/state")
+    assert state["approvals"] == []
+    first, second = store.approvals(master, states=("approved",))
+    assert [(a["id"], a["revocable"]) for a in state["auto_approved"]] == [(str(second.id), True),
+                                                                            (str(first.id), False)]
+    assert "63 %" in state["auto_approved"][0]["text"] and state["auto_approved"][0]["hustle"] == master
+    # a later confirmation built on the first one
+    assert call(f"{url}/api/approvals/{first.id}", {"decision": "revoke"})[0] == 409
+    status, state = call(f"{url}/api/approvals/{second.id}", {"decision": "revoke"})
+    assert status == 200 and store.approval(second.id).state == "revoked"
+    assert store.hustle(master).confirmed_version == second.baseline
+    # judged again for the user, now without auto-approve, and the first is the latest again
+    [pending] = state["approvals"]
+    assert store.approval(int(pending["id"])).automatic is False
+    assert [(a["id"], a["revocable"]) for a in state["auto_approved"]] == [(str(first.id), True)]
+    assert call(f"{url}/api/approvals/{second.id}", {"decision": "revoke"})[0] == 409
+    assert call(f"{url}/api/approvals/{pending['id']}", {"decision": "revoke"})[0] == 409  # the user's own
+
+
+def test_a_users_approval_is_not_listed_as_automatic(app, store, ids):
+    url, _ = app
+    [approval] = store.approvals(states=("pending",))
+    _, state = call(f"{url}/api/approvals/{approval.id}", {"decision": "yes"})
+    assert state["auto_approved"] == []
+    assert call(f"{url}/api/approvals/{approval.id}", {"decision": "revoke"})[0] == 409
 
 
 def test_the_week_carries_where_its_target_line_stands_now(store, ids):

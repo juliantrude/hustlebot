@@ -13,6 +13,11 @@
   <ul id="approvalList"></ul>
  </section>
 
+ <section id="autoApproved" hidden>
+  <h2>Approved automatically</h2>
+  <ul id="autoApprovedList"></ul>
+ </section>
+
  <h2>Hustles</h2>
  <div class="flow">
   <div class="core-col">
@@ -26,6 +31,11 @@
     <div class="stepper"><button type="button" data-points="-1" aria-label="fewer points">−</button><span id="points"></span><button type="button" data-points="1" aria-label="more points">+</button></div>
     <div class="muted" id="pointsText"></div>
     <div class="muted" id="thresholdText"></div>
+    <div class="settings">
+     <label class="setting" title="whether plans may use Fable at all"><span class="switch"><input type="checkbox" id="allowFable"><span></span></span>Fable allowed</label>
+     <div class="setting">auto-approve <span class="segmented" id="autoApprove" role="radiogroup" aria-label="auto-approve"></span></div>
+     <div class="setting" id="growth" hidden>up to <span class="stepper"><button type="button" data-growth="-5" aria-label="less growth">−</button><span id="growthValue"></span><button type="button" data-growth="5" aria-label="more growth">+</button></span> growth, one model step</div>
+    </div>
    </div>
   </div>
   <div id="hustles"></div>

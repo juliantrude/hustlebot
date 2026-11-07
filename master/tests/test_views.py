@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from conftest import seed
+from conftest import auto_approve, seed
 from hustlemaster.server import serve
 from hustlemaster.store import Store
 from hustlemaster.usage import Reading, Window
@@ -173,4 +173,54 @@ def test_cinema_view_shows_only_active_hustles(server, page, tmp_path):
     assert {"Hustlemaster v2", "Workout sync API"} <= drawn
     assert "Docs search" not in drawn  # inactive
     shot(page, "cinema-active", tmp_path)
+    assert page.errors == []
+
+
+@pytest.fixture
+def approvals_server():
+    # its own store: the test revokes and switches settings the other view tests read
+    store = Store()
+    ids = seed(store)
+    auto_approve(store, ids["sync"], ("F",), ("G", "H", "I"))
+    store.update_settings(auto_approve="off")
+    httpd, _ = serve(store, 0)
+    threading.Thread(target=httpd.serve_forever, daemon=True).start()
+    yield f"http://127.0.0.1:{httpd.server_port}", ids, store
+    httpd.shutdown()
+    httpd.server_close()
+    store.close()
+
+
+def test_settings_and_approvals_in_the_control_view(approvals_server, page, tmp_path):
+    url, ids, store = approvals_server
+    page.goto(url + "/")
+    page.locator("#autoApprove button").first.wait_for()
+    assert page.locator("#approvalList li").count() == 1
+    auto = page.locator("#autoApprovedList li")
+    assert auto.count() == 2 and auto.nth(0).locator(".revoke").count() == 1 and auto.nth(1).locator(".revoke").count() == 0
+    assert auto.nth(0).locator(".t").inner_text().startswith("final_lift · Workout sync API: the plan grew by")
+    assert page.locator("#autoApprove [aria-checked=true]").inner_text() == "off" and page.locator("#growth").is_hidden()
+    shot(page, "settings", tmp_path)
+
+    page.locator(".setting .switch").click()
+    page.wait_for_function("() => document.getElementById('allowFable').checked")
+    assert store.settings().allow_fable is True
+    page.locator("#autoApprove button[data-mode=limited]").click()
+    page.locator("#growth").wait_for()
+    assert store.settings().auto_approve == "limited"
+    page.locator("[data-growth='5']").click()
+    page.wait_for_function("() => document.getElementById('growthValue').textContent === '30 %'")
+    assert store.settings().auto_approve_growth == 30
+    shot(page, "settings-limited", tmp_path)
+
+    auto.nth(0).locator(".revoke").click()
+    page.wait_for_function("() => document.querySelectorAll('#approvalList li').length === 2")
+    [revoked] = store.approvals(ids["sync"], states=("revoked",))
+    assert store.hustle(ids["sync"]).confirmed_version == revoked.baseline
+    # the earlier automatic approval is the latest again and can be taken back in turn
+    assert auto.count() == 1 and auto.nth(0).locator(".revoke").count() == 1
+    shot(page, "settings-revoked", tmp_path)
+    page.locator("#approvalList li", has_text="Workout sync API").locator(".yes").click()
+    page.wait_for_function("() => document.querySelectorAll('#approvalList li').length === 1")
+    assert store.hustle(ids["sync"]).confirmed_version == store.hustle(ids["sync"]).version
     assert page.errors == []

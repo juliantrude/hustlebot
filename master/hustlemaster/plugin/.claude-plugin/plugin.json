@@ -1,0 +1,8 @@
+{
+  "name": "hustlebot",
+  "version": "2.0.0-dev",
+  "description": "Internal skills of the hustlemaster, passed to each hustlebot with --plugin-dir. Named like the installed plugin so it replaces it for the session: a hustlebot never sees the loop or planning skills.",
+  "author": {
+    "name": "Julian Trude"
+  }
+}

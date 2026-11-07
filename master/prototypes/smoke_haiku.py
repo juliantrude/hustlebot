@@ -8,8 +8,8 @@ Wires the pieces the way the hustlemaster will: `Store` holds the plan, the MCP 
 
 A and B are independent and touch disjoint files, so they run in parallel and the second merge has to rebase onto
 the first — the path a sequential pair would never take. The acceptance increment is an overseer and its skill does
-not exist yet, so it is left out. The worker skill is a stand-in until the Skills increments; it is named
-`hustlebot:work` because that is what the runner's prompt asks for. At most four real sessions (one retry each).
+not exist yet, so it is left out. The sessions get the packaged internal plugin (`PLUGIN_DIR`), so this also
+checks the real worker skill. At most four real sessions (one retry each).
 """
 
 from __future__ import annotations
@@ -24,29 +24,13 @@ from hustlemaster import merge, worktree
 from hustlemaster.access import Tokens
 from hustlemaster.mcp_server import Endpoint
 from hustlemaster.model import Increment
-from hustlemaster.runner import PLUGIN, Runner
+from hustlemaster.runner import PLUGIN_DIR, Runner
 from hustlemaster.store import Store
 
 VERIFY = "python3 -m unittest discover -q"
 
 BRIEF = """A tiny Python module of polite phrases. Plain standard library, no packages.
 Done when `python3 -m unittest discover -q` passes in the repository root."""
-
-WORK_SKILL = """---
-name: work
-description: Internal skill of the hustlemaster. Execute one increment of a hustle.
----
-
-You implement exactly the increment in your prompt, in the current directory, which is a git worktree.
-
-1. Make the change the increment asks for, nothing more.
-2. Run the check the increment names and make it pass.
-3. Commit everything as exactly one commit with a message that says what and why.
-4. Do not push, do not switch branches, do not touch other worktrees.
-
-Then end with the report block the prompt describes.
-"""
-
 
 def plan() -> list[Increment]:
     return [
@@ -59,15 +43,6 @@ def plan() -> list[Increment]:
         Increment("ok", "acceptance", "haiku", [], after=["A", "B"], mode="overseer",
                   prompt="Check the Definition of Done against `main`."),
     ]
-
-
-def plugin(base: Path) -> Path:
-    root = base / "plugin"
-    (root / ".claude-plugin").mkdir(parents=True)
-    (root / ".claude-plugin" / "plugin.json").write_text(json.dumps({"name": PLUGIN, "version": "0.0.0-smoke"}))
-    (root / "skills" / "work").mkdir(parents=True)
-    (root / "skills" / "work" / "SKILL.md").write_text(WORK_SKILL)
-    return root
 
 
 def scratch_repo(path: Path) -> None:
@@ -91,7 +66,7 @@ def main(base: Path) -> int:
     store.set_active(hid, True)
     tokens = Tokens()
     endpoint = Endpoint(store, tokens).start()
-    runner = Runner(endpoint.mcp_config(), tokens, plugin(base), base / "runs")
+    runner = Runner(endpoint.mcp_config(), tokens, PLUGIN_DIR, base / "runs")
     log: list[dict] = []
     notes: dict[str, str | None] = {}
     try:

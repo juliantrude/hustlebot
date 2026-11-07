@@ -31,6 +31,8 @@ REPORT_STATUSES = ("done", "failed", "too-big", "blocked")
 # own skills and never the loop or planning skills (ADR 0011).
 PLUGIN = "hustlebot"
 SKILLS = {"worker": f"{PLUGIN}:work", "overseer": f"{PLUGIN}:oversee"}
+# inside the package, so an installed hustlemaster carries the skills its sessions need
+PLUGIN_DIR = Path(__file__).resolve().parent / "plugin"
 MCP_SERVER = "hustlemaster"
 # An unattended session must edit and run the project's checks without asking anyone; the old loop has always run
 # with `--dangerously-skip-permissions` for the same reason. The worktree bounds where it works, the token bounds

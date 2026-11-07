@@ -37,6 +37,26 @@ limit reliably.
 - No notifications for now: the hustlemaster is expected to run on a VM. Phone
   notifications come once a general channel between the user and the agents exists.
 
+### As built (2026-11-07, `master/hustlemaster/budget.py`)
+
+- `Budget.check(model, settings, running)` asks, in order: the safety net (a limit turned a
+  session away), the 5h threshold (at or above it, like the old loop's `≥ 85 %`), the weekly
+  target line, and the fit. A refusal names when it should lift: the 5h reset, the moment
+  the line catches up with the usage (or the weekly reset), or the reset the limit named.
+- **The fit** is in dollars, the unit of ADR 0012: the mean `total_cost_usd` of the model's
+  last ten finished sessions (else the mean per point of all models × its points), plus the
+  same for every running session, times the learned percent per dollar of each window. The
+  session waits if that would carry either window past 100 %. With no learned rate or no
+  finished session there is nothing to estimate from and it may start; the safety net
+  catches a miss. A per-model weekly window shown at 100 % holds back that model only.
+- **Parking:** a session cut off by a limit does **not** count as an attempt (ADR 0015's
+  two resumes are for the increment's own failures). Its worktree stays, the block holds
+  every start until the next window, and the increment's next session gets a note to
+  continue from what is in the worktree. Its cost is accounted for the usage but kept out
+  of the cost history: a cut-off session says nothing about what a whole one costs.
+- Cost history and parked increments live in memory. After a restart the orphan scan
+  (ADR 0011) finds the worktree and resumes it; only the note is lost.
+
 ## Consequences
 
 - Supersedes the self-arming timer and the in-skill budget guard of ADR 0003 for the new

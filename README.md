@@ -24,6 +24,14 @@ GOAL.md  ←→  /advance-goal (skill, 1 increment per run)
 
 <img width="1157" height="432" alt="image" src="https://github.com/user-attachments/assets/9ca64b72-88f0-4aef-a9ca-3bab88d457b3" />
 
+> **v2 is here: the hustlemaster.** One background service per machine runs
+> several hustles in parallel — plans with dependencies and a model per
+> increment, one session per increment in its own worktree, session points
+> shared by weight, a dashboard to steer it all. See
+> [`master/README.md`](master/README.md) for install, use and the migration
+> from this loop. Everything below describes the v1 loop, which keeps working
+> until you migrate.
+
 ## Install
 
 > **Renamed in 0.3.0:** the plugin was called `hustle` and is now `hustlebot`,

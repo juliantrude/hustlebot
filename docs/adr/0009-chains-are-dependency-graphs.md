@@ -1,6 +1,6 @@
 # ADR 0009 — A hustle is a dependency graph with a model per increment
 
-Status: Proposed (revised 2026-11-07 after the grilling)
+Status: Accepted (2026-11-07, the code matches; deviations are recorded as built)
 Date: 2026-11-06
 
 ## Context
@@ -52,3 +52,14 @@ chain is slower than it needs to be. The model is chosen per run, not per increm
 - The executor skill runs one given increment instead of the next unchecked line.
 - The dashboard renders the plan with graph-engine (rootless graphs, the `active` look,
   `?view=mini`): one node type per model, state as colour.
+
+### As built (2026-11-07, `hustlemaster/plan.py`, `hustlemaster/events.py`)
+
+- **The overseer model rule is kept by the planner and the hustlemaster, not by validation.** Event overseers get
+  the strongest allowed model the total can carry (ADR 0015); a planned overseer increment runs on the model its
+  plan names, which `/hustle` sets to Opus or Fable. Validation does not refuse a weaker one: a user who wants a
+  cheap acceptance check on a small hustle may choose it in the graph view.
+- Validation refuses everything the Definition of Done lists (cycles, unknown or self dependencies, no acceptance
+  increment — transitive dependencies count —, Fable while not allowed, a cost above the total) plus duplicate ids,
+  unknown models or modes and empty prompts, all reasons at once.
+

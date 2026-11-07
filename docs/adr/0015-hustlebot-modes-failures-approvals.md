@@ -1,6 +1,6 @@
 # ADR 0015 — Worker and overseer, failures and approvals
 
-Status: Proposed
+Status: Accepted (2026-11-07, the code matches; deviations are recorded as built)
 Date: 2026-11-07
 
 ## Context

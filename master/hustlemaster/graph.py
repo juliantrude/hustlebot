@@ -16,7 +16,8 @@ MODEL_TYPES = [
 
 # why an open increment does not start, in the tag line
 HELD = {"paused": "paused", "overseer": "with an overseer", "approval": "awaits approval",
-        "provisional": "provisional, awaits approval"}
+        "provisional": "provisional, awaits approval", "fable": "Fable is switched off",
+        "points": "costs more than the total points"}
 
 STATES = [
     {"id": "done", "look": "strong", "label": "Done"},

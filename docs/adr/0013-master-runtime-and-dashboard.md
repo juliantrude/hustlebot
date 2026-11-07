@@ -1,6 +1,6 @@
 # ADR 0013 — hustlemaster runtime and dashboard
 
-Status: Proposed (revised 2026-11-07 after the grilling)
+Status: Accepted (2026-11-07, the code matches; deviations are recorded as built)
 Date: 2026-11-06
 
 ## Context
@@ -34,7 +34,8 @@ own monitor (`scripts/hustle-monitor.py`) on its own port.
     their sliders. The core's beams bend into the hustle lanes, carry the last hour as a
     waveform and flow into each plan, where sparks hit the running increments. The scene
     drifts slowly against burn-in. Expected scale: up to 5–6 hustles.
-- The per-project monitors are removed.
+- The per-project monitors are removed. (As built: they stay with the old loop, which drives running `GOAL.md`
+  chains until the migration; they go with it.)
 
 ## Consequences
 

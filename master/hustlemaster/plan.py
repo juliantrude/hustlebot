@@ -13,7 +13,10 @@ class PlanError(ValueError):
         self.problems = problems
 
 
-def problems(increments: list[Increment], *, allow_fable: bool, total_points: int) -> list[str]:
+def problems(increments: list[Increment], *, allow_fable: bool, total_points: int,
+             kept: frozenset[str] = frozenset()) -> list[str]:
+    """`kept` are increments the change leaves on the model they had: a setting changed since (Fable switched off, a
+    smaller total) holds them until it allows them again, and must not freeze the rest of the plan meanwhile."""
     found: list[str] = []
     if not increments:
         return ["the plan has no increments"]
@@ -27,6 +30,8 @@ def problems(increments: list[Increment], *, allow_fable: bool, total_points: in
             found.append("an increment has an empty id")
         if inc.model not in POINTS:
             found.append(f"{inc.id}: unknown model {inc.model!r}")
+        elif inc.id in kept:
+            pass
         elif inc.model == "fable" and not allow_fable:
             found.append(f"{inc.id}: Fable is not allowed (allow_fable is off)")
         elif POINTS[inc.model] > total_points:
@@ -47,8 +52,9 @@ def problems(increments: list[Increment], *, allow_fable: bool, total_points: in
     return found
 
 
-def check(increments: list[Increment], *, allow_fable: bool, total_points: int) -> None:
-    found = problems(increments, allow_fable=allow_fable, total_points=total_points)
+def check(increments: list[Increment], *, allow_fable: bool, total_points: int,
+          kept: frozenset[str] = frozenset()) -> None:
+    found = problems(increments, allow_fable=allow_fable, total_points=total_points, kept=kept)
     if found:
         raise PlanError(found)
 

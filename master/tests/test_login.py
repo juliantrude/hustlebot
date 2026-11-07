@@ -195,3 +195,18 @@ def test_the_default_bind_is_loopback_only(tmp_path):
     finally:
         proc.terminate()
         proc.wait(5)
+
+
+def test_the_service_creates_its_home_when_started_without_the_installer(tmp_path):
+    db = tmp_path / "new" / "home" / "hustlemaster.db"
+    port = free_port()
+    proc = subprocess.Popen([sys.executable, "-m", "hustlemaster.server", "--db", str(db), "--port", str(port),
+                             "--mcp-port", str(free_port())], cwd=MASTER)
+    try:
+        wait_for(port)
+        assert db.is_file() and (db.parent / "dashboard-token").is_file()
+        assert db.parent.stat().st_mode & 0o777 == 0o700
+    finally:
+        proc.terminate()
+        proc.wait(5)
+

@@ -1,6 +1,6 @@
 # ADR 0014 — Plans live in the hustlemaster, reached over MCP
 
-Status: Proposed
+Status: Accepted (2026-11-07, the code matches; deviations are recorded as built)
 Date: 2026-11-07
 
 ## Context
@@ -84,3 +84,16 @@ happens in the repo, by the project's Claude Code; execution belongs to the hust
   old one drives running chains until the migration.
 - **The plugin also carries `install`** (successor of `loop-setup`): it finds the checkout three folders above
   itself, settles bind address and ports, runs the installer and reports where the login token is.
+
+### As built (2026-11-07, final sweep)
+
+- **A setting changed later holds, it does not refuse.** The hustlemaster never starts a Fable increment while
+  `allow_fable` is off, but an increment stored while Fable was allowed is not blocked when the switch goes off: it
+  waits (`held = "fable"`, "Fable is switched off" in the graph view) and starts once the switch is on again or its
+  model is changed. A total lowered below an increment's cost holds it the same way (`held = "points"`); the
+  scheduler would otherwise keep the free points for it forever (ADR 0010). Plan changes check Fable and cost only
+  for increments that are new or change their model, so a held increment does not freeze the rest of the plan.
+- **No file export yet.** A plan is read over MCP (`read_hustle`, `list_hustles`) and every version stays in the
+  store; an export command was not needed by anything built so far.
+- **A running increment cannot be deleted** (the graph view refuses it, ADR 0013); "a deleted one has its result
+  discarded" therefore never happens. Pause it, let the session finish, then delete.

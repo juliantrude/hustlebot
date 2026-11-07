@@ -213,16 +213,30 @@ def test_a_failure_reported_before_the_restart_still_counts(make, fake_claude, s
     assert "lint failed" in fake_claude.calls()[1]["argv"][1]
 
 
-def test_an_increment_that_cannot_start_is_blocked_not_retried(make, fake_claude, store, repo):
+def test_an_increment_that_cannot_start_is_blocked_not_retried(make, fake_claude, store, tmp_path):
+    hid = submit(store, tmp_path / "gone", "C")  # the repository was removed after the plan was stored
+    svc = make()
+    svc.step()
+    svc.step()
+    assert states(store, hid)["C"] == ("blocked", 0)
+    assert "could not start" in store.take_note(hid, "C")
+    assert fake_claude.calls() == []
+
+
+def test_fable_switched_off_holds_its_increments_until_switched_on(make, fake_claude, store, repo):
     store.update_settings(allow_fable=True)
     hid = submit(store, repo, "C", model="fable")
     store.update_settings(allow_fable=False)  # switched off after the plan was stored
     svc = make()
     svc.step()
     svc.step()
-    assert states(store, hid)["C"] == ("blocked", 0)
-    assert "allow_fable is off" in store.take_note(hid, "C")
+    assert states(store, hid)["C"] == ("open", 0)
     assert fake_claude.calls() == []
+
+    fake_claude.script([step(), step()])
+    store.update_settings(allow_fable=True)
+    until(svc, lambda: store.hustle(hid).status() == "done")
+    assert fake_claude.calls()[0]["argv"][fake_claude.calls()[0]["argv"].index("--model") + 1] == "fable"
 
 
 def test_one_process_serves_the_views_while_the_loop_runs(make, fake_claude, store, repo):

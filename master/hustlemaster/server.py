@@ -227,6 +227,8 @@ def main() -> None:
     engine = engine_page()
     if not engine.is_file():
         parser.error(f"graph-engine page not found at {engine}")
+    # without the installer nothing has created the home yet; it holds the tokens, so only the user may enter it
+    Path(args.db).resolve().parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     store = Store(args.db)
     home = Path(args.home or Path(args.db).resolve().parent)
     service = Service(store, home, claude=args.claude, mcp_port=args.mcp_port, usage_cwd=args.usage_cwd,

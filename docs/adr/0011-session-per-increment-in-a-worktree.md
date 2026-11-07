@@ -1,6 +1,6 @@
 # ADR 0011 — One headless hustlebot per increment, in its own worktree
 
-Status: Proposed (revised 2026-11-07 after the grilling)
+Status: Accepted (2026-11-07, the code matches; deviations are recorded as built)
 Date: 2026-11-06
 
 ## Context

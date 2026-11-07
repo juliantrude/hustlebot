@@ -17,7 +17,7 @@ from dataclasses import dataclass, field, fields, replace
 from pathlib import Path
 
 from . import approvals as judging, plan
-from .model import STATES, Hustle, Increment
+from .model import POINTS, STATES, Hustle, Increment
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -264,7 +264,8 @@ class Store:
         `confirm` is the user's own change in the dashboard: it is their yes, so it becomes the baseline at once —
         unless an approval is pending, which only the user's explicit decision may settle: then it is judged."""
         self._require(hustle_id)
-        self._check(increments)
+        current = {i.id: i.model for i in self.hustle(hustle_id).increments}
+        self._check(increments, kept=frozenset(i.id for i in increments if current.get(i.id) == i.model))
         with self.db:
             self.db.execute("BEGIN")
             version = self._version(hustle_id) + 1
@@ -519,9 +520,9 @@ class Store:
         return Approval(**{**dict(row), "reasons": json.loads(row["reasons"]), "waiting": json.loads(row["waiting"]),
                            "automatic": bool(row["automatic"])})
 
-    def _check(self, increments: list[Increment]) -> None:
+    def _check(self, increments: list[Increment], kept: frozenset[str] = frozenset()) -> None:
         settings = self.settings()
-        plan.check(increments, allow_fable=settings.allow_fable, total_points=settings.total_points)
+        plan.check(increments, allow_fable=settings.allow_fable, total_points=settings.total_points, kept=kept)
 
     def _require(self, hustle_id: str) -> None:
         if self.db.execute("SELECT 1 FROM hustles WHERE id = ?", (hustle_id,)).fetchone() is None:
@@ -555,6 +556,14 @@ class Store:
         pending = self.db.execute("SELECT waiting FROM approvals WHERE hustle = ? AND state = 'pending'",
                                   (hustle_id,)).fetchone()
         waiting = json.loads(pending["waiting"]) if pending else {}
+        settings = self.settings()
+
+        def disallowed(model: str) -> str:
+            # the plan passed when it was stored; a setting changed since holds what it no longer allows
+            if model == "fable" and not settings.allow_fable:
+                return "fable"
+            return "points" if POINTS[model] > settings.total_points else ""
+
         return [
             Increment(
                 id=r["id"],
@@ -567,7 +576,8 @@ class Store:
                 mode=r["mode"],
                 attempts=r["attempts"],
                 peak_context=r["peak_context"],
-                held="overseer" if r["overseen"] else "paused" if r["paused"] else waiting.get(r["id"], ""),
+                held=("overseer" if r["overseen"] else "paused" if r["paused"]
+                      else disallowed(r["model"]) or waiting.get(r["id"], "")),
             )
             for r in rows
         ]

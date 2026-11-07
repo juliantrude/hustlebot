@@ -76,6 +76,36 @@ def test_fable_is_rejected_while_not_allowed(store):
     assert store.submit("/repo", "t", "b", plan, author="user")
 
 
+def test_a_setting_changed_later_holds_increments_it_no_longer_allows(store):
+    store.update_settings(allow_fable=True)
+    plan = valid_plan()
+    plan[0].model = "fable"
+    hid = store.submit("/repo", "t", "b", plan, author="user")
+    store.update_settings(allow_fable=False, total_points=3)
+    held = {i.id: i.held for i in store.hustle(hid).increments}
+    assert held == {"A": "fable", "B": "", "C": "", "ok": "points"}
+    assert [i.id for i in store.hustle(hid).ready()] == ["C"]
+
+    # the plan stays changeable: increments kept as they are pass, only new or changed ones are checked
+    plan[2].prompt = "do C better"
+    store.change_plan(hid, plan, author="user")
+    plan[1].model = "fable"
+    assert rejected_change(store, hid, plan) == ["B: Fable is not allowed (allow_fable is off)"]
+    plan[1].model = "sonnet"
+    plan.append(inc("D", model="opus"))
+    plan[3].after.append("D")
+    assert rejected_change(store, hid, plan) == ["D: opus costs 4 points, more than the total of 3"]
+
+    store.update_settings(allow_fable=True, total_points=20)
+    assert [i.id for i in store.hustle(hid).ready()] == ["A", "C"]
+
+
+def rejected_change(store, hid, increments):
+    with pytest.raises(PlanError) as err:
+        store.change_plan(hid, increments, author="user")
+    return err.value.problems
+
+
 def test_increment_costing_more_than_the_total_is_rejected(store):
     store.update_settings(total_points=3)
     assert rejected(store, valid_plan()) == ["ok: opus costs 4 points, more than the total of 3"]

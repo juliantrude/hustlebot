@@ -1,6 +1,6 @@
 # ADR 0008 — The hustlemaster owns scheduling and the budget
 
-Status: Proposed (revised 2026-11-07 after the grilling, see `docs/ideas/next-version.md`)
+Status: Accepted (2026-11-07, the code matches; deviations are recorded as built)
 Date: 2026-11-06
 
 ## Context

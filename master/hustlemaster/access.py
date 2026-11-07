@@ -13,6 +13,7 @@ import threading
 from dataclasses import asdict, dataclass
 from pathlib import Path
 
+from . import projects
 from .model import Increment
 from .store import Store
 
@@ -87,9 +88,12 @@ def token_file(path: Path) -> str:
 class Gate:
     """The store as one caller may see it. Every method checks the right first, then the hustle binding."""
 
-    def __init__(self, store: Store, caller: Caller) -> None:
+    def __init__(self, store: Store, caller: Caller, root: Path | None = None) -> None:
+        """`root` holds the projects' repositories (ADR 0016); without one a project is an absolute path that
+        must already be a repository here, as before."""
         self.store = store
         self.caller = caller
+        self.root = root
 
     def allowed(self, action: str) -> bool:
         return action in RIGHTS.get(self.caller.role, frozenset())
@@ -137,12 +141,32 @@ class Gate:
         return answer
 
     def submit_hustle(self, project: str, title: str, brief: str, increments: list[Increment], *,
-                      push: bool | None = None, verify: str | None = None) -> str:
+                      commit: str | None = None, remote: str | None = None, push: str | None = None,
+                      verify: str | None = None, required: list[str] | None = None) -> dict:
+        """Prepare the project's repository here, check that the state the plan was made against has arrived, and
+        store the hustle. The answer says what the user still has to do before it may start."""
         self._right("submit_hustle")
-        if not Path(project).is_absolute():
-            raise ValueError("project must be an absolute path to the repository")
-        return self.store.submit(project, title, brief, increments, author=self.caller.author, push=push,
-                                 verify=verify)
+        if push is not None and push not in projects.PUSH_MODES:
+            raise ValueError(f"push must be one of {', '.join(projects.PUSH_MODES)}")
+        if self.root is None:
+            if not Path(project).is_absolute():
+                raise ValueError("project must be an absolute path to the repository")
+            path = Path(project)
+        else:
+            path = projects.path_for(self.root, project)
+            stored = self.store.project(str(path))
+            projects.prepare(path, remote if remote is not None else (stored.remote if stored else None) or None)
+            synced = projects.sync(path)
+            if commit and not projects.contains(path, commit):
+                hint = (f"push it to the project's remote ({remote or stored.remote})" if (remote or (stored and stored.remote))
+                        else f"push it here: git push <this host>:{path} main")
+                raise ValueError(f"commit {commit} is not in `main` of {path} yet; {hint}"
+                                 + (f" ({synced})" if synced else ""))
+        hustle_id = self.store.submit(str(path), title, brief, increments, author=self.caller.author, push=push,
+                                      verify=verify, remote=remote, required=required)
+        project_now = self.store.project(str(path))
+        return {"hustle": hustle_id, "repository": str(path), "remote": project_now.remote,
+                "push": project_now.push, "missing_files": projects.missing(path, project_now.required)}
 
     def read_settings(self) -> dict:
         self._right("read_settings")

@@ -63,10 +63,15 @@ def _quote(arg: str) -> str:
 
 
 def unit_text(*, uv: str, master: Path, where: Layout, claude: str, path: str, port: int, bind: str,
-              mcp_port: int) -> str:
+              mcp_port: int, projects: str = "~/hustles", mcp_bind: str | None = None, mcp_external_port: int = 8772,
+              mcp_names: list[str] | None = None) -> str:
     command = [uv, "run", "--project", str(master), "--no-dev", "python", "-m", "hustlemaster.server",
                "--db", str(where.db), "--home", str(where.home), "--port", str(port), "--bind", bind,
-               "--mcp-port", str(mcp_port), "--claude", claude]
+               "--mcp-port", str(mcp_port), "--claude", claude, "--projects", projects]
+    if mcp_bind:
+        command += ["--mcp-bind", mcp_bind, "--mcp-external-port", str(mcp_external_port)]
+        for name in mcp_names or []:
+            command += ["--mcp-name", name]
     return f"""[Unit]
 Description=hustlemaster: runs the hustles on this machine (hustlebot v2)
 Wants=network-online.target
@@ -135,9 +140,47 @@ def _foreign_hustlebot(run, claude: str, env: dict[str, str]) -> str | None:
     return next((p["id"] for p in plugins if p.get("id", "").startswith("hustlebot@") and p["id"] != PLUGIN), None)
 
 
+def _mcp_entry(run, claude: str, env: dict[str, str], url: str, token: str) -> None:
+    # remove first: `mcp add` keeps an existing entry, and a new token or address must replace it
+    _run(run, [claude, "mcp", "remove", "-s", "user", MCP_NAME], env, check=False)
+    _run(run, [claude, "mcp", "add", "-s", "user", "-t", "http", MCP_NAME, url,
+               "-H", f"Authorization: Bearer {token}"], env)
+
+
+def _plugin(run, claude: str, env: dict[str, str], master: Path, report: Report) -> None:
+    foreign = _foreign_hustlebot(run, claude, env)
+    if foreign:
+        report.skipped.append(f"/hustle not installed: {foreign} is installed and also answers to "
+                              f"`hustlebot`; uninstall it at the migration and install again, or meanwhile "
+                              f"start sessions with --plugin-dir {master / 'user-plugin'}")
+    else:
+        _run(run, [claude, "plugin", "marketplace", "add", str(master)], env)
+        _run(run, [claude, "plugin", "install", PLUGIN], env)
+        report.done.append(f"/hustle ({PLUGIN}, read in place from {master / 'user-plugin'})")
+
+
+def install_client(url: str, token: str, master: Path = MASTER, *, env: dict[str, str] | None = None,
+                   claude: str | None = None, plugin: bool = True, run=subprocess.run) -> Report:
+    """A machine that only plans (ADR 0016): `/hustle` and the MCP entry for the hustle host's external endpoint,
+    with the interactive token from there. No service, no store."""
+    env = dict(os.environ if env is None else env)
+    claude = _which("claude", env, claude)
+    if not url.startswith(("https://", "http://")):
+        raise InstallError("the MCP address must be a URL, e.g. https://hustle.example.org/mcp")
+    report = Report(layout(env), "(on the hustle host)", url)
+    _mcp_entry(run, claude, env, url, token.strip())
+    report.done.append(f"MCP entry `{MCP_NAME}` → {url} (user scope)")
+    if plugin:
+        _plugin(run, claude, env, Path(master).resolve(), report)
+    else:
+        report.skipped.append("/hustle not installed (--no-plugin)")
+    return report
+
+
 def install(master: Path = MASTER, *, env: dict[str, str] | None = None, port: int = 8770, bind: str = "127.0.0.1",
             mcp_port: int = 8771, claude: str | None = None, uv: str | None = None, systemd: bool = True,
-            start: bool = True, plugin: bool = True, run=subprocess.run) -> Report:
+            start: bool = True, plugin: bool = True, projects: str = "~/hustles", mcp_bind: str | None = None,
+            mcp_external_port: int = 8772, mcp_names: list[str] | None = None, run=subprocess.run) -> Report:
     env = dict(os.environ if env is None else env)
     master = Path(master).resolve()
     if not (master / "hustlemaster" / "server.py").is_file():
@@ -155,7 +198,10 @@ def install(master: Path = MASTER, *, env: dict[str, str] | None = None, port: i
 
     where.unit.parent.mkdir(parents=True, exist_ok=True)
     where.unit.write_text(unit_text(uv=uv, master=master, where=where, claude=claude, path=env.get("PATH", ""),
-                                    port=port, bind=bind, mcp_port=mcp_port))
+                                    port=port, bind=bind, mcp_port=mcp_port, projects=projects, mcp_bind=mcp_bind,
+                                    mcp_external_port=mcp_external_port, mcp_names=mcp_names))
+    if mcp_bind:
+        report.done.append(f"external MCP endpoint on {mcp_bind}:{mcp_external_port}, interactive token only")
     report.done.append(f"unit {where.unit}")
     if systemd:
         _run(run, ["systemctl", "--user", "daemon-reload"], env)
@@ -169,22 +215,11 @@ def install(master: Path = MASTER, *, env: dict[str, str] | None = None, port: i
     else:
         report.skipped.append("systemd not told (no daemon-reload, nothing started)")
 
-    # remove first: `mcp add` keeps an existing entry, and a new token or port must replace it
-    _run(run, [claude, "mcp", "remove", "-s", "user", MCP_NAME], env, check=False)
-    _run(run, [claude, "mcp", "add", "-s", "user", "-t", "http", MCP_NAME, report.mcp_url,
-               "-H", f"Authorization: Bearer {interactive}"], env)
+    _mcp_entry(run, claude, env, report.mcp_url, interactive)
     report.done.append(f"MCP entry `{MCP_NAME}` for interactive sessions (user scope)")
 
     if plugin:
-        foreign = _foreign_hustlebot(run, claude, env)
-        if foreign:
-            report.skipped.append(f"/hustle not installed: {foreign} is installed and also answers to "
-                                  f"`hustlebot`; uninstall it at the migration and install again, or meanwhile "
-                                  f"start sessions with --plugin-dir {master / 'user-plugin'}")
-        else:
-            _run(run, [claude, "plugin", "marketplace", "add", str(master)], env)
-            _run(run, [claude, "plugin", "install", PLUGIN], env)
-            report.done.append(f"/hustle ({PLUGIN}, read in place from {master / 'user-plugin'})")
+        _plugin(run, claude, env, master, report)
     else:
         report.skipped.append("/hustle not installed (--no-plugin)")
     return report
@@ -192,9 +227,18 @@ def install(master: Path = MASTER, *, env: dict[str, str] | None = None, port: i
 
 def parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--client", metavar="MCP_URL",
+                        help="install only /hustle and the MCP entry for a hustle host at this address (ADR 0016); "
+                             "the interactive token comes from --token or the HUSTLE_TOKEN variable")
+    parser.add_argument("--token", help="with --client: the hustle host's interactive token")
     parser.add_argument("--port", type=int, default=8770)
     parser.add_argument("--bind", default="127.0.0.1", help="the web app's address; the MCP endpoint stays local")
     parser.add_argument("--mcp-port", type=int, default=8771)
+    parser.add_argument("--projects", default="~/hustles", help="where the projects' repositories live")
+    parser.add_argument("--mcp-bind", help="also serve MCP on this address for other machines (interactive only)")
+    parser.add_argument("--mcp-external-port", type=int, default=8772)
+    parser.add_argument("--mcp-name", action="append", default=[],
+                        help="a host name the external MCP endpoint answers to (the reverse proxy's); repeatable")
     parser.add_argument("--claude", help="the claude executable; default: the one on PATH")
     parser.add_argument("--no-systemd", dest="systemd", action="store_false",
                         help="write the unit but leave systemd alone")
@@ -206,8 +250,16 @@ def parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = parser().parse_args(argv)
     try:
-        report = install(port=args.port, bind=args.bind, mcp_port=args.mcp_port, claude=args.claude,
-                         systemd=args.systemd, start=args.start, plugin=args.plugin)
+        if args.client:
+            token = args.token or os.environ.get("HUSTLE_TOKEN")
+            if not token:
+                raise InstallError("--client needs the hustle host's interactive token (--token or HUSTLE_TOKEN)")
+            report = install_client(args.client, token, claude=args.claude, plugin=args.plugin)
+        else:
+            report = install(port=args.port, bind=args.bind, mcp_port=args.mcp_port, claude=args.claude,
+                             systemd=args.systemd, start=args.start, plugin=args.plugin, projects=args.projects,
+                             mcp_bind=args.mcp_bind, mcp_external_port=args.mcp_external_port,
+                             mcp_names=args.mcp_name)
     except InstallError as err:
         print(f"install failed: {err}", file=sys.stderr)
         return 1

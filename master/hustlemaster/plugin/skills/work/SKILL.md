@@ -37,6 +37,11 @@ Your prompt holds the hustle's brief, your increment, possibly a section
 - Stay inside this worktree. Never touch the main checkout or other worktrees.
 - Gitignored files here (`.env`, local config) are copies from the main
   checkout. Use them; never commit them.
+- Never install anything system-wide: no `sudo`, no `apt`, no global
+  `npm -g` or `pip install --user`. Project dependencies through the project's
+  own tooling (`uv`, `npm` in the worktree, Docker) are fine. If the increment
+  needs a system package or a tool the host lacks, stop and report `blocked`
+  with what is missing; the user installs it on the host.
 
 ## 3. Verify
 

@@ -1,6 +1,7 @@
 # ADR 0014 — Plans live in the hustlemaster, reached over MCP
 
 Status: Accepted (2026-11-07, the code matches; deviations are recorded as built)
+Amended by ADR 0016 (hustle host, optional remote, push modes, external MCP endpoint).
 Date: 2026-11-07
 
 ## Context

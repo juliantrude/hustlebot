@@ -39,6 +39,11 @@ function card(hustle) {
     );
     node.querySelector(".switch").addEventListener("click", (e) => e.stopPropagation());
     node.querySelector(".weight").addEventListener("click", (e) => e.stopPropagation());
+    node.querySelector(".pushNow").addEventListener("click", (e) => {
+      e.stopPropagation();
+      e.target.disabled = true;
+      api(`/api/hustles/${hustle.id}/push`, {}).then(render).finally(() => (e.target.disabled = false));
+    });
     node.addEventListener("click", () => navigate(`/hustles/${hustle.id}`));
     cards.set(hustle.id, node);
     $("hustles").append(node);
@@ -65,12 +70,25 @@ function card(hustle) {
   node.querySelector(".title").textContent = hustle.title;
   node.querySelector(".progress i").style.width = `${(100 * hustle.done) / hustle.total}%`;
   node.querySelector(".count").textContent = `${hustle.done} / ${hustle.total} increments`;
+  pushLine(node.querySelector(".push"), hustle.push);
   const load = node.querySelector(".load");
   load.title = hustle.sessions.length
     ? hustle.sessions.map((s) => `${s.increment} · ${s.model} · ${s.points} pts`).join("\n")
     : "no session running";
   Load.update(hustle.id, load, hustle);
   return node;
+}
+
+// where the project's work leaves this machine (ADR 0016); hidden for projects that do not push
+function pushLine(el, push) {
+  el.hidden = !push;
+  if (!push) return;
+  const since = push.last_ok ? new Date(push.last_ok * 1000).toLocaleString() : "never";
+  const where = push.mode === "main" ? "main" : "its branch";
+  el.classList.toggle("failed", Boolean(push.error));
+  const text = el.querySelector(".pushed");
+  text.textContent = push.pending ? `not pushed to ${where} since ${since}` : `pushed to ${where} ${since}`;
+  text.title = push.error ? `${push.remote}\n${push.error}` : push.remote;
 }
 
 function renderApprovals(list, hustles) {

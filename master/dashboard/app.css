@@ -35,6 +35,9 @@ button:hover{background:#24304a}
 .hustle .project{color:#8a94a6;font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hustle .title{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hustle .progress .count{margin-top:2px}
+.hustle .push{margin-top:4px;font-size:12px}
+.hustle .push.failed .pushed{color:#ff6b6b}
+.hustle .push button{font-size:11px;padding:1px 8px}
 .weight{text-align:center}
 .weight .w{display:inline-block;min-width:22px;font-weight:600}
 .status{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;text-align:center;background:#1c2230;color:#9fb0c8}

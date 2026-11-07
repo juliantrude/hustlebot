@@ -20,7 +20,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import parse_qs, quote, urlsplit
 
-from . import editing
+from . import editing, projects
 from .access import token_file
 from .graph import graph_doc
 from .live import Live
@@ -171,9 +171,20 @@ def make_handler(live: Live, engine: Path, token: str | None = None):
                 match = re.fullmatch(r"/api/hustles/([\w-]+)", self.path)
                 if match and store.hustle(match.group(1)):
                     if "active" in body:
+                        if body["active"]:
+                            path = store.hustle(match.group(1)).project
+                            project = store.project(path)
+                            if project and (missing := projects.missing(Path(path), project.required)):
+                                raise ValueError(f"copy the required files to {path} first: {', '.join(missing)}")
                         store.set_active(match.group(1), bool(body["active"]))
                     if "weight" in body:
                         store.set_weight(match.group(1), max(1, int(body["weight"])))
+                    return self._json(live.summary())
+                match = re.fullmatch(r"/api/hustles/([\w-]+)/push", self.path)
+                if match and store.hustle(match.group(1)):
+                    if live.push_now is None:
+                        return self._json({"error": "nothing pushes without the service"}, 409)
+                    live.push_now(match.group(1))
                     return self._json(live.summary())
                 match = re.fullmatch(r"/api/hustles/([\w-]+)/edit", self.path)
                 if match and store.hustle(match.group(1)):
@@ -220,6 +231,13 @@ def main() -> None:
                         help="the web app's address, e.g. a private interface; the MCP endpoint stays on 127.0.0.1")
     # fixed, because the interactive sessions' MCP entry names it
     parser.add_argument("--mcp-port", type=int, default=8771)
+    parser.add_argument("--projects", default="~/hustles",
+                        help="where the projects' repositories live; the user pushes into them (ADR 0016)")
+    parser.add_argument("--mcp-bind", help="also serve MCP on this address for the user's sessions on other "
+                                           "machines; interactive tokens only. Default: off")
+    parser.add_argument("--mcp-external-port", type=int, default=8772)
+    parser.add_argument("--mcp-name", action="append", default=[],
+                        help="a host name the external MCP endpoint answers to, e.g. the reverse proxy's; repeatable")
     parser.add_argument("--usage-cwd", help="a folder Claude Code trusts, for reading `/usage`; default: a project")
     parser.add_argument("--claude", default="claude")
     args = parser.parse_args()
@@ -232,13 +250,14 @@ def main() -> None:
     store = Store(args.db)
     home = Path(args.home or Path(args.db).resolve().parent)
     service = Service(store, home, claude=args.claude, mcp_port=args.mcp_port, usage_cwd=args.usage_cwd,
-                      interactive=token_file(home / "interactive-token"))
+                      interactive=token_file(home / "interactive-token"), projects_root=args.projects,
+                      mcp_bind=args.mcp_bind, mcp_external_port=args.mcp_external_port, mcp_names=args.mcp_name)
     login = home / "dashboard-token"
     server, _ = serve(store, args.port, engine, service.live, bind=args.bind, token=token_file(login))
     service.start()
     host = f"[{args.bind}]" if ":" in args.bind else args.bind
     print(f"hustlemaster on http://{host}:{server.server_port}/ (login token in {login}), MCP on "
-          f"{service.endpoint.url}", flush=True)
+          f"{service.endpoint.url}" + (f" and {service.external.url}" if service.external else ""), flush=True)
     # systemd stops with SIGTERM; leaving through `finally` lets merges under way finish before the process ends
     signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
     try:

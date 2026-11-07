@@ -23,9 +23,20 @@ SCHEMA = """
 CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS projects (
     path TEXT PRIMARY KEY,
-    push INTEGER NOT NULL DEFAULT 0,
+    push INTEGER NOT NULL DEFAULT 0,  -- unused since ADR 0016, see push_mode; kept so older databases still open
     copy_excludes TEXT,  -- JSON list overriding the default excludes for gitignored files (ADR 0011); NULL = default
-    verify TEXT  -- shell command that checks the project after an increment's rebase onto main; NULL = none
+    verify TEXT,  -- shell command that checks the project after an increment's rebase onto main; NULL = none
+    remote TEXT,  -- the project's one remote (ADR 0016); NULL = none, the user pushes here
+    push_mode TEXT NOT NULL DEFAULT 'off',  -- off, branch (the hustle's own) or main
+    required TEXT NOT NULL DEFAULT '[]'  -- JSON list of ignored files the project needs here, e.g. an .env
+);
+CREATE TABLE IF NOT EXISTS pushes (
+    hustle TEXT PRIMARY KEY REFERENCES hustles(id),
+    pending TEXT,  -- the commit of `main` still to push; NULL = nothing waiting
+    error TEXT,  -- why the last try failed
+    tries INTEGER NOT NULL DEFAULT 0,
+    last_try REAL,
+    last_ok REAL
 );
 CREATE TABLE IF NOT EXISTS hustles (
     id TEXT PRIMARY KEY,
@@ -124,9 +135,21 @@ class Settings:
 @dataclass
 class Project:
     path: str
-    push: bool = False
+    push: str = "off"  # off, branch, main (ADR 0016); without a remote nothing is pushed either way
     copy_excludes: list[str] | None = None
     verify: str | None = None
+    remote: str | None = None
+    required: list[str] = field(default_factory=list)
+
+
+@dataclass
+class Push:
+    hustle: str
+    pending: str | None = None
+    error: str | None = None
+    tries: int = 0
+    last_try: float | None = None
+    last_ok: float | None = None
 
 
 @dataclass
@@ -184,6 +207,15 @@ class Store:
         self.db.row_factory = sqlite3.Row
         self.db.execute("PRAGMA foreign_keys = ON")
         self.db.executescript(SCHEMA)
+        self._migrate()
+
+    def _migrate(self) -> None:
+        # CREATE TABLE IF NOT EXISTS leaves an older projects table as it was
+        have = {row["name"] for row in self.db.execute("PRAGMA table_info(projects)")}
+        for column, kind in (("remote", "TEXT"), ("push_mode", "TEXT NOT NULL DEFAULT 'off'"),
+                             ("required", "TEXT NOT NULL DEFAULT '[]'")):
+            if column not in have:
+                self.db.execute(f"ALTER TABLE projects ADD COLUMN {column} {kind}")
 
     def close(self) -> None:
         self.db.close()
@@ -217,28 +249,69 @@ class Store:
         if row is None:
             return None
         excludes = json.loads(row["copy_excludes"]) if row["copy_excludes"] is not None else None
-        return Project(row["path"], bool(row["push"]), excludes, row["verify"])
+        return Project(row["path"], row["push_mode"], excludes, row["verify"], row["remote"], json.loads(row["required"]))
 
-    def set_project(self, path: str, *, push: bool | None = None, copy_excludes: list[str] | None = None,
-                    verify: str | None = None) -> Project:
+    def projects(self) -> list[Project]:
+        return [self.project(row["path"]) for row in self.db.execute("SELECT path FROM projects ORDER BY path")]
+
+    def set_project(self, path: str, *, push: str | None = None, copy_excludes: list[str] | None = None,
+                    verify: str | None = None, remote: str | None = None, required: list[str] | None = None) -> Project:
+        """Change what is given; None keeps it. "" clears `verify` and `remote`."""
         current = self.project(path) or Project(path)
         if push is not None:
+            if push not in ("off", "branch", "main"):
+                raise ValueError(f"push must be off, branch or main, not {push!r}")
             current.push = push
         if copy_excludes is not None:
             current.copy_excludes = copy_excludes
         if verify is not None:
-            current.verify = verify or None  # "" clears it
+            current.verify = verify or None
+        if remote is not None:
+            current.remote = remote or None
+        if required is not None:
+            current.required = list(required)
         self.db.execute(
-            "INSERT OR REPLACE INTO projects VALUES (?, ?, ?, ?)",
-            (path, int(current.push), json.dumps(current.copy_excludes) if current.copy_excludes is not None else None,
-             current.verify),
+            # an upsert, not REPLACE: a replaced row is deleted first, and the hustles of the project point at it
+            "INSERT INTO projects (path, copy_excludes, verify, remote, push_mode, required) VALUES (?, ?, ?, ?, ?, ?) "
+            "ON CONFLICT(path) DO UPDATE SET copy_excludes = excluded.copy_excludes, verify = excluded.verify, "
+            "remote = excluded.remote, push_mode = excluded.push_mode, required = excluded.required",
+            (path, json.dumps(current.copy_excludes) if current.copy_excludes is not None else None,
+             current.verify, current.remote, current.push, json.dumps(current.required)),
         )
         return current
+
+    # pushes (ADR 0016): what waits to leave this machine, per hustle
+
+    def push_state(self, hustle_id: str) -> Push:
+        row = self.db.execute("SELECT * FROM pushes WHERE hustle = ?", (hustle_id,)).fetchone()
+        return Push(**dict(row)) if row is not None else Push(hustle_id)
+
+    def pushes_pending(self) -> list[Push]:
+        return [Push(**dict(r)) for r in self.db.execute("SELECT * FROM pushes WHERE pending IS NOT NULL")]
+
+    def push_wanted(self, hustle_id: str, commit: str) -> None:
+        self.db.execute("INSERT INTO pushes (hustle, pending) VALUES (?, ?) "
+                        "ON CONFLICT(hustle) DO UPDATE SET pending = excluded.pending", (hustle_id, commit))
+
+    def push_tried(self, hustle_id: str, commit: str, error: str | None) -> None:
+        """A try for `commit`; a success clears what is pending unless a newer commit arrived meanwhile."""
+        now = time.time()
+        with self.db:
+            self.db.execute("BEGIN")
+            self.db.execute("INSERT OR IGNORE INTO pushes (hustle) VALUES (?)", (hustle_id,))
+            if error is None:
+                self.db.execute("UPDATE pushes SET error = NULL, tries = 0, last_try = ?, last_ok = ?, "
+                                "pending = CASE WHEN pending = ? THEN NULL ELSE pending END WHERE hustle = ?",
+                                (now, now, commit, hustle_id))
+            else:
+                self.db.execute("UPDATE pushes SET error = ?, tries = tries + 1, last_try = ? WHERE hustle = ?",
+                                (error, now, hustle_id))
 
     # hustles and plans
 
     def submit(self, project: str, title: str, brief: str, increments: list[Increment], *, author: str,
-               push: bool | None = None, verify: str | None = None) -> str:
+               push: str | None = None, verify: str | None = None, remote: str | None = None,
+               required: list[str] | None = None) -> str:
         """Store a new hustle. It arrives inactive; the first activation confirms it (ADR 0009). `push` and `verify`
         are the project's settings, which `/hustle` settles while planning (ADR 0011); None keeps what is stored."""
         self._check(increments)
@@ -247,8 +320,7 @@ class Store:
             self.db.execute("BEGIN")
             if self.project(project) is None:
                 self.db.execute("INSERT INTO projects (path) VALUES (?)", (project,))
-            if push is not None or verify is not None:
-                self.set_project(project, push=push, verify=verify)
+            self.set_project(project, push=push, verify=verify, remote=remote, required=required)
             self.db.execute(
                 "INSERT INTO hustles (id, project, title, brief, created) VALUES (?, ?, ?, ?, ?)",
                 (hustle_id, project, title, brief, time.time()),

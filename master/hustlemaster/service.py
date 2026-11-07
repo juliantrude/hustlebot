@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from . import events, merge, runner, scheduler, worktree
+from . import events, merge, projects, runner, scheduler, worktree
 from .access import Caller, Tokens
 from .budget import Budget
 from .live import Live
@@ -36,6 +36,7 @@ from .worktree import Worktree
 log = logging.getLogger("hustlemaster")
 
 PASS_SECONDS = 5.0
+PUSH_BACKOFF = (60.0, 1800.0)  # the first retry of a failed push, and the longest wait between two (ADR 0016)
 USAGE_SECONDS = 600.0  # the `/usage` screen costs a short interactive session; own accounting fills the gaps
 
 RESTARTED_NOTE = ("The previous session of this increment was cut off when the hustlemaster restarted, not for "
@@ -75,15 +76,26 @@ class Service:
 
     def __init__(self, store: Store, home: Path | str, *, claude: str = "claude", env: dict[str, str] | None = None,
                  plugin_dir: Path | str = PLUGIN_DIR, usage: Usage | None = None, mcp_port: int = 0,
-                 interactive: str | None = None, usage_cwd: Path | str | None = None) -> None:
+                 interactive: str | None = None, usage_cwd: Path | str | None = None,
+                 projects_root: Path | str | None = None, mcp_bind: str | None = None, mcp_external_port: int = 0,
+                 mcp_names: list[str] | None = None) -> None:
+        """`projects_root` holds the projects' repositories (ADR 0016); `mcp_bind` opens a second MCP endpoint
+        there for the user's sessions on other machines, answering to `mcp_names` (e.g. the proxy's host name)."""
         self.store = store
         self.home = Path(home).resolve()
         self.worktrees = self.home / "worktrees"
+        self.projects_root = Path(projects_root).expanduser().resolve() if projects_root else None
         self.tokens = Tokens(interactive)
-        self.endpoint = Endpoint(store, self.tokens, mcp_port)
+        self.endpoint = Endpoint(store, self.tokens, mcp_port, root=self.projects_root)
+        self.external = None
+        if mcp_bind:
+            self.external = Endpoint(store, self.tokens, mcp_external_port, host=mcp_bind, root=self.projects_root,
+                                     roles=frozenset({"interactive"}), names=mcp_names)
+        self._pushing: set[str] = set()
         self.usage = usage or Usage()
         self.budget = Budget(self.usage)
         self.live = Live(store, self.usage)
+        self.live.push_now = self.push_now
         self.runner = Runner(self.endpoint.mcp_config(), self.tokens, plugin_dir, self.home / "runs", claude=claude,
                              env=env)
         self.claude = claude
@@ -98,6 +110,8 @@ class Service:
 
     def start(self, every: float = PASS_SECONDS, usage_every: float | None = USAGE_SECONDS) -> Service:
         self.endpoint.start()
+        if self.external is not None:
+            self.external.start()
         self.recover()
         self.live.run_forever()
         self._forever(self.step, every)
@@ -110,6 +124,8 @@ class Service:
         self._stop.set()
         self.drain()
         self.endpoint.stop()
+        if self.external is not None:
+            self.external.stop()
 
     def _forever(self, work, every: float) -> None:
         def loop() -> None:
@@ -153,6 +169,7 @@ class Service:
             self._spawn(self._merge, job, outcome)
         for hustle in self.store.hustles():
             events.sync_proposals(self.store, hustle.id)
+        self._retry_pushes()
 
         hustles, settings = self.store.hustles(), self.store.settings()
         sessions = self.live.sessions()
@@ -197,6 +214,9 @@ class Service:
             inc = next(i for i in hustle.increments if i.id == start.increment)
             place = inc.id
         try:
+            if missing := projects.missing(Path(hustle.project), project.required):
+                raise RuntimeError(f"required files missing in {hustle.project}: {', '.join(missing)}; copy them "
+                                   f"there, then unblock the increment")
             wt = worktree.create(hustle.project, self.worktrees, hustle.id, place, excludes=project.copy_excludes)
             note = None
             if event is None:
@@ -252,14 +272,66 @@ class Service:
                 step = events.Step(events.DONE)
             else:
                 project = self.store.project(job.repo) or Project(job.repo)
-                result = merge.merge(job.repo, job.worktree, verify=project.verify, push=project.push)
-                if result.push_error:
-                    log.warning("push of %s failed: %s", job.repo, result.push_error)
+                result = merge.merge(job.repo, job.worktree, verify=project.verify)
+                if result.status == merge.MERGED and project.remote and project.push != "off":
+                    # the increment is done here; pushing is a step after it and never holds the hustle up
+                    self.store.push_wanted(job.hustle, result.commit)
+                    self._push(job.hustle)
                 step = events.settle(inc.attempts, outcome, result)
         if step.action == events.RETRY:
             with self._lock:
                 self.retries[(job.hustle, job.key)] = (job, outcome)
         events.record(self.store, job.hustle, job.key, step)
+
+    # pushes (ADR 0016)
+
+    def push_now(self, hustle_id: str) -> dict:
+        """The dashboard's Push button: push the project's `main` as it is now, without waiting for the backoff."""
+        hustle = self.store.hustle(hustle_id)
+        if hustle is None:
+            raise KeyError(f"unknown hustle {hustle_id!r}")
+        project = self.store.project(hustle.project) or Project(hustle.project)
+        if not project.remote or project.push == "off":
+            raise ValueError("this project does not push: it has no remote, or pushing is off")
+        commit = projects.head(Path(hustle.project))
+        if commit is None:
+            raise ValueError(f"{hustle.project} has no `main` yet")
+        self.store.push_wanted(hustle_id, commit)
+        self._push(hustle_id, wait=True)
+        return vars(self.store.push_state(hustle_id))
+
+    def _retry_pushes(self) -> None:
+        now = time.time()
+        for state in self.store.pushes_pending():
+            wait = min(PUSH_BACKOFF[0] * 2 ** max(state.tries - 1, 0), PUSH_BACKOFF[1]) if state.tries else 0.0
+            if state.last_try is None or now - state.last_try >= wait:
+                self._push(state.hustle)
+
+    def _push(self, hustle_id: str, wait: bool = False) -> None:
+        with self._lock:
+            if hustle_id in self._pushing:
+                return
+            self._pushing.add(hustle_id)
+
+        def push() -> None:
+            try:
+                state = self.store.push_state(hustle_id)
+                hustle = self.store.hustle(hustle_id)
+                if state.pending is None or hustle is None:
+                    return
+                project = self.store.project(hustle.project) or Project(hustle.project)
+                error = projects.push(Path(hustle.project), project.push, hustle_id)
+                if error:
+                    log.warning("push of %s for %s failed: %s", hustle.project, hustle_id, error)
+                self.store.push_tried(hustle_id, state.pending, error)
+            finally:
+                with self._lock:
+                    self._pushing.discard(hustle_id)
+
+        if wait:
+            push()
+        else:
+            self._spawn(push)
 
     def _keep_proposals(self, job: Job, outcome: Outcome) -> None:
         """The report repeats what the worker proposed over MCP; only if none of its proposals arrived that way —

@@ -11,12 +11,14 @@ import json
 import socket
 import threading
 import time
+from pathlib import Path
 from typing import Any
 
 import uvicorn
 from mcp.server.context import ServerRequestContext
 from mcp.server.mcpserver import Context, MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
+from mcp.server.transport_security import TransportSecuritySettings
 from mcp.shared.exceptions import MCPError
 from pydantic import BaseModel, Field
 
@@ -50,12 +52,12 @@ def bearer(headers: Any) -> str | None:
     return token.strip() if scheme.lower() == "bearer" else None
 
 
-def build(store: Store, tokens: Tokens) -> MCPServer:
+def build(store: Store, tokens: Tokens, root: Path | None = None) -> MCPServer:
     def gate(ctx: Context) -> Gate:
         caller = tokens.caller(bearer(ctx.headers))
         if caller is None:  # the ASGI guard already refused it; this only covers a token revoked mid-request
             raise ToolError("unknown or revoked token")
-        return Gate(store, caller)
+        return Gate(store, caller, root)
 
     def run(call):
         try:
@@ -93,13 +95,19 @@ def build(store: Store, tokens: Tokens) -> MCPServer:
         return json.dumps(run(lambda: gate(ctx).change_plan(incs, note, hustle_id or None)))
 
     @server.tool(description="Submit a new hustle. It arrives paused; the user activates it in the dashboard. "
-                             "push and verify are the project's settings for every hustle in it; leave them out "
-                             "to keep what the project has (new projects: no push, no check).")
+                             "project is the project's name on the hustlemaster's host; its repository is created "
+                             "there on first use (cloned from remote, or empty for the user to push into). commit "
+                             "is the commit the plan was made against; it must already be in that repository's "
+                             "main. remote, push (off, branch, main), verify and required (ignored files the "
+                             "project needs, e.g. .env) are the project's settings; leave them out to keep what "
+                             "the project has. The answer names the repository and any missing required files.")
     def submit_hustle(ctx: Context, project: str, title: str, brief: str, increments: list[IncrementSpec],
-                      push: bool | None = None, verify: str | None = None) -> str:
+                      commit: str = "", remote: str | None = None, push: str | None = None,
+                      verify: str | None = None, required: list[str] | None = None) -> str:
         incs = [i.increment() for i in increments]
-        return json.dumps({"hustle": run(lambda: gate(ctx).submit_hustle(project, title, brief, incs, push=push,
-                                                                         verify=verify))})
+        return json.dumps(run(lambda: gate(ctx).submit_hustle(project, title, brief, incs, commit=commit or None,
+                                                              remote=remote, push=push, verify=verify,
+                                                              required=required)))
 
     @server.tool(description="The hustlemaster's settings: total points, thresholds, allow_fable, auto-approve.")
     def read_settings(ctx: Context) -> str:
@@ -140,16 +148,20 @@ class RoleFilter:
 
 
 class TokenGuard:
-    """ASGI wrapper: no MCP traffic without a known bearer token."""
+    """ASGI wrapper: no MCP traffic without a known bearer token — of one of `roles`, if given. The endpoint the
+    network reaches takes only the user's interactive token (ADR 0016): a hustlebot's session token is no use
+    outside its own machine."""
 
-    def __init__(self, app, tokens: Tokens) -> None:
+    def __init__(self, app, tokens: Tokens, roles: frozenset[str] | None = None) -> None:
         self.app = app
         self.tokens = tokens
+        self.roles = roles
 
     async def __call__(self, scope, receive, send) -> None:
         if scope["type"] == "http":
             headers = {k.decode("latin-1"): v.decode("latin-1") for k, v in scope["headers"]}
-            if self.tokens.caller(bearer(headers)) is None:
+            caller = self.tokens.caller(bearer(headers))
+            if caller is None or (self.roles is not None and caller.role not in self.roles):
                 body = b'{"error": "unknown or missing bearer token"}'
                 await send({"type": "http.response.start", "status": 401,
                             "headers": [(b"content-type", b"application/json"), (b"www-authenticate", b"Bearer")]})
@@ -158,26 +170,40 @@ class TokenGuard:
         await self.app(scope, receive, send)
 
 
-def app(store: Store, tokens: Tokens):
-    return TokenGuard(build(store, tokens).streamable_http_app(streamable_http_path=PATH), tokens)
+def app(store: Store, tokens: Tokens, root: Path | None = None, roles: frozenset[str] | None = None,
+        names: list[str] | None = None):
+    """`names` are the Host headers the endpoint answers besides its own address, e.g. the name a reverse proxy
+    passes on; the SDK refuses any other (DNS rebinding protection), and without them only localhost works."""
+    security = None
+    if names:
+        security = TransportSecuritySettings(enable_dns_rebinding_protection=True, allowed_hosts=list(names),
+                                             allowed_origins=[f"https://{n}" for n in names])
+    inner = build(store, tokens, root).streamable_http_app(streamable_http_path=PATH, transport_security=security)
+    return TokenGuard(inner, tokens, roles)
 
 
 class Endpoint:
-    """The MCP endpoint running in a thread of the hustlemaster process, always on 127.0.0.1 (ADR 0013)."""
+    """The MCP endpoint running in a thread of the hustlemaster process. The hustlebots' one is on 127.0.0.1
+    (ADR 0013); a second one on `host` serves the user's sessions on other machines, interactive tokens only."""
 
-    def __init__(self, store: Store, tokens: Tokens, port: int = 0) -> None:
+    def __init__(self, store: Store, tokens: Tokens, port: int = 0, *, host: str = "127.0.0.1",
+                 root: Path | None = None, roles: frozenset[str] | None = None, names: list[str] | None = None) -> None:
         self.tokens = tokens
-        self._sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.host = host
+        self._sock = socket.socket(socket.AF_INET6 if ":" in host else socket.AF_INET, socket.SOCK_STREAM)
         self._sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        self._sock.bind(("127.0.0.1", port))
+        self._sock.bind((host, port))
         self.port = self._sock.getsockname()[1]
-        config = uvicorn.Config(app(store, tokens), log_level="warning", lifespan="on")
+        if names:
+            names = [*names, f"{host}:{self.port}"]
+        config = uvicorn.Config(app(store, tokens, root, roles, names), log_level="warning", lifespan="on")
         self._server = uvicorn.Server(config)
         self._thread = threading.Thread(target=self._server.run, kwargs={"sockets": [self._sock]}, daemon=True)
 
     @property
     def url(self) -> str:
-        return f"http://127.0.0.1:{self.port}{PATH}"
+        host = f"[{self.host}]" if ":" in self.host else self.host
+        return f"http://{host}:{self.port}{PATH}"
 
     def mcp_config(self) -> dict:
         """What a hustlebot gets as `--mcp-config`; its environment carries the token in `TOKEN_ENV`."""

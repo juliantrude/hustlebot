@@ -44,7 +44,7 @@ def test_submit_stores_an_inactive_hustle_at_version_1(store):
     ]
     assert all(i.state == "open" and i.attempts == 0 for i in h.increments)
     assert [i.id for i in h.ready()] == ["A", "C"]
-    assert store.project("/repo").push is False
+    assert store.project("/repo").push == "off"
 
 
 def test_cycle_is_rejected(store):
@@ -176,27 +176,27 @@ def test_weight_and_project_switches(store):
         store.set_weight(hid, 0)
     with pytest.raises(KeyError):
         store.set_weight("nope", 2)
-    store.set_project("/repo", push=True)
+    store.set_project("/repo", push="branch")
     store.set_project("/repo", copy_excludes=["*.sqlite"])
     store.set_project("/repo", verify="uv run pytest -q")
     p = store.project("/repo")
-    assert (p.push, p.copy_excludes, p.verify) == (True, ["*.sqlite"], "uv run pytest -q")
+    assert (p.push, p.copy_excludes, p.verify) == ("branch", ["*.sqlite"], "uv run pytest -q")
     assert store.set_project("/repo", verify="").verify is None
-    assert store.project("/repo").push is True
+    assert store.project("/repo").push == "branch"
 
 
 
 def test_submit_settles_the_project_switches_only_when_given(store):
     # `/hustle` settles push and the check while planning (ADR 0011); a later hustle without them keeps them
-    first = store.submit("/repo", "t", "b", valid_plan(), author="user", push=True, verify="make check")
-    assert (store.project("/repo").push, store.project("/repo").verify) == (True, "make check")
+    first = store.submit("/repo", "t", "b", valid_plan(), author="user", push="main", verify="make check")
+    assert (store.project("/repo").push, store.project("/repo").verify) == ("main", "make check")
     second = store.submit("/repo", "u", "b", valid_plan(), author="user")
-    assert (store.project("/repo").push, store.project("/repo").verify) == (True, "make check")
-    store.submit("/repo", "v", "b", valid_plan(), author="user", push=False)
-    assert (store.project("/repo").push, store.project("/repo").verify) == (False, "make check")
+    assert (store.project("/repo").push, store.project("/repo").verify) == ("main", "make check")
+    store.submit("/repo", "v", "b", valid_plan(), author="user", push="off")
+    assert (store.project("/repo").push, store.project("/repo").verify) == ("off", "make check")
     assert store.hustle(first) and store.hustle(second)  # rewriting the project row keeps its hustles
     with pytest.raises(PlanError):
-        store.submit("/other", "w", "b", [inc("A")], author="user", push=True)
+        store.submit("/other", "w", "b", [inc("A")], author="user", push="branch")
     assert store.project("/other") is None  # a rejected plan settles nothing
 
 def test_settings_defaults_and_validation(store):

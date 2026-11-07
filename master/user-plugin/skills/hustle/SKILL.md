@@ -5,10 +5,11 @@ description: Plan a hustle (a long-running goal in this repository) as a plan of
 
 # hustle — plan a hustle and hand it to the hustlemaster
 
-The **hustlemaster** is a background service on this machine. It stores every
+The **hustlemaster** is a background service, usually on another machine (the
+hustle host). It keeps its own repository of every project, stores every
 hustle's plan, starts one headless hustlebot per increment in its own git
-worktree, merges verified results into `main`, and shares the subscription's
-session points between the hustles. Your job is the planning: understand the
+worktree there, merges verified results into `main` of that repository, and
+shares the subscription's session points between the hustles. Your job is the planning: understand the
 goal, cut it into increments, and submit the plan. You never run increments
 yourself.
 
@@ -36,9 +37,19 @@ answer and do not ask again.
 - Call `list_hustles`: what already runs in this project. A new hustle whose
   increments touch the same files as a running one will collide on merge; say
   so and plan around it.
-- The project is the repository root (`git rev-parse --show-toplevel`). The
-  hustlemaster branches off and merges into `main`; if the default branch has
-  another name, tell the user before planning.
+- The project's **name** on the hustle host is the repository root's folder
+  name (`basename "$(git rev-parse --show-toplevel)"`) unless the user names
+  another; letters, digits, `.`, `_`, `-`. The hustlemaster branches off and
+  merges into `main`; if the default branch has another name, tell the user
+  before planning.
+- The project's **remote** on the hustle host is optional and at most one
+  (`git remote -v`; usually `origin`'s URL). With a remote, the hustlemaster
+  fetches from it; without one, the user pushes their state straight into the
+  repository on the hustle host. Ask which the user wants for this project.
+- Find the **ignored files the project needs** to build and test: `.env`,
+  local config, credentials files (`git status --ignored --short`, the
+  README's setup). They never travel through git or MCP; they are `required`
+  and the user copies them to the hustle host once.
 - Read `CLAUDE.md` (and `AGENTS.md`, `CONTEXT.md`, the README), look at the
   structure, find the project's check command (tests, linters, build).
 - Is the repository public? (`gh repo view --json visibility`, or the remote
@@ -104,23 +115,45 @@ Show the user the plan before submitting: a table of id, title, model, mode
 and dependencies, which increments start at once, and the points the widest
 moment needs. Take their changes.
 
-Ask about **pushing**: when on, the hustlemaster pushes `main` after each
-merge; a hustlebot never pushes. The default is off. For a public repository
-ask explicitly and recommend off. Pushing and the check command are settings
-of the project, shared by all its hustles.
+Ask about **pushing**, only for a project with a remote: `off` (the default),
+`branch` (after each merge the hustlemaster pushes its `main` to the hustle's
+own branch `hustle/<id>` on the remote), or `main` (straight to the remote's
+`main`). A hustlebot never pushes. A failed push never holds the hustle up; the
+dashboard shows it and has a Push button. For a public repository ask
+explicitly and recommend `off` or `branch`. Without a remote nothing is pushed;
+the user fetches the results from the hustle host. Pushing, the remote, the
+check command and the required files are settings of the project, shared by
+all its hustles.
+
+**Hand the state over** before submitting: the plan is made against the
+current commit (`git rev-parse HEAD`), and it must be in `main` on the hustle
+host. With a remote: the user pushes it there (`git push`). Without one: the
+user pushes it straight to the hustle host —
+`git push <host>:<repository> HEAD:main`, where the repository is what
+`submit_hustle` answered for an earlier hustle of the project, or what the
+error of a first try names. Uncommitted changes do not travel; say so if
+`git status` shows any.
 
 Then ask for the go to submit, unless the user already said to submit.
 
 ## 5. Submit
 
-Call `submit_hustle` with `project` (the absolute repository root), `title`,
-`brief`, `increments` (each with `id`, `title`, `prompt`, `after`, `model`,
-`mode`), `push` and `verify`.
+Call `submit_hustle` with `project` (the name), `commit` (the full hash of
+`HEAD` the plan was made against), `title`, `brief`, `increments` (each with
+`id`, `title`, `prompt`, `after`, `model`, `mode`), `remote` (the URL, or ""
+for none), `push`, `verify` and `required` (the list of ignored files).
 
-Always pass `push` and `verify` for a project with no hustle in
-`list_hustles` yet: without them a new project gets no check after each
-rebase and the acceptance overseer is the only safety net. Leave them out
+Always pass `remote`, `push`, `verify` and `required` for a project with no
+hustle in `list_hustles` yet: without them a new project gets no check after
+each rebase and the acceptance overseer is the only safety net. Leave them out
 only when the project already has hustles and the user did not change them.
+
+A first submit without a remote creates an empty repository on the hustle
+host and fails because the commit is not there yet; its error names the
+repository. Have the user push there, then submit again. The answer names the
+`repository` and any `missing_files`: give the user the command to copy each,
+e.g. `scp .env <host>:<repository>/.env`. The hustle cannot be activated
+until they are there.
 
 A rejected plan comes back with every problem listed (cycles, unknown
 dependencies, missing acceptance increment, Fable not allowed, a model above
@@ -128,7 +161,9 @@ the total points). Fix them all and submit again.
 
 Then tell the user the hustle's id and that it arrives **paused**: they
 activate it in the hustlemaster's dashboard, where they can still edit prompts
-and models first. The first activation confirms the plan; later growth is
+and models first. To review results later: `git fetch` from the remote (the
+hustle's branch, or `main`), or without a remote straight from the hustle host
+(`git fetch <host>:<repository> main`). The first activation confirms the plan; later growth is
 measured against it.
 
 ## 6. Convert a `GOAL.md`

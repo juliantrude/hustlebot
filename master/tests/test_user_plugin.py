@@ -103,7 +103,7 @@ def test_skill_leaves_the_dashboard_its_rights():
     for setting in ("activation", "weights", "approvals", "total points", "`allow_fable`", "auto-approve"):
         assert setting in text.split("are the dashboard's alone")[0].rsplit("- ", 1)[1], setting
     assert "do not shrink the change to dodge the approval" in text
-    assert "ask explicitly and recommend off" in text
+    assert "ask explicitly and recommend `off` or `branch`" in text
 
 
 @pytest.mark.skipif(shutil.which("claude") is None, reason="no claude executable")

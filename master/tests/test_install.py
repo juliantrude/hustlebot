@@ -71,7 +71,7 @@ def test_unit_runs_this_checkout_and_spares_the_sessions(tmp_path):
     assert argv[:6] == ["/usr/bin/uv", "run", "--project", str(MASTER), "--no-dev", "python"]
     opts = dict(zip(argv[8::2], argv[9::2]))
     assert opts == {"--db": str(where.db), "--home": str(where.home), "--port": "9000", "--bind": "0.0.0.0",
-                    "--mcp-port": "9001", "--claude": "/opt/c 100%/claude"}  # spaces and % survive systemd
+                    "--mcp-port": "9001", "--claude": "/opt/c 100%/claude", "--projects": "~/hustles"}  # spaces and % survive systemd
     assert '"/opt/c 100%%/claude"' in text  # systemd would read a bare % as a specifier
     assert "KillMode=process" in text.splitlines()  # a restart must not kill running hustlebots
     assert 'Environment="PATH=/a:/b"' in text or "Environment=PATH=/a:/b" in text
@@ -207,3 +207,29 @@ def test_install_skill_names_only_flags_the_installer_takes():
     taken = {opt for action in inst.parser()._actions for opt in action.option_strings}
     assert named and named <= taken, named - taken
     assert "python -m hustlemaster.install" in skill and "dashboard-token" in skill
+
+
+@needs_claude
+def test_client_install_points_at_the_hustle_host(tmp_path):
+    # ADR 0016: a planning machine gets /hustle and the entry for the host's external endpoint, nothing else
+    env = scratch(tmp_path)
+    report = inst.install_client("https://hustle.example.org/mcp", "secret-token\n", MASTER, env=env)
+    entry = claude_json(env)["mcpServers"]["hustlemaster"]
+    assert entry == {"type": "http", "url": "https://hustle.example.org/mcp",
+                     "headers": {"Authorization": "Bearer secret-token"}}
+    assert not inst.layout(env).home.exists() and not inst.layout(env).unit.exists()
+    assert [p["id"] for p in plugins(env)] == ["hustlebot@hustlemaster"] and not report.skipped
+    with pytest.raises(inst.InstallError):
+        inst.install_client("hustle.example.org", "t", MASTER, env=env)
+
+
+def test_unit_opens_the_external_endpoint_only_when_asked(tmp_path):
+    where = inst.layout({"HOME": str(tmp_path)})
+    plain = exec_start(inst.unit_text(uv="/uv", master=MASTER, where=where, claude="/c", path="/bin", port=1,
+                                      bind="0.0.0.0", mcp_port=2))
+    assert "--mcp-bind" not in plain and plain[plain.index("--projects") + 1] == "~/hustles"
+    opened = exec_start(inst.unit_text(uv="/uv", master=MASTER, where=where, claude="/c", path="/bin", port=1,
+                                       bind="0.0.0.0", mcp_port=2, mcp_bind="0.0.0.0", mcp_external_port=3,
+                                       mcp_names=["hustle.example.org"]))
+    assert opened[opened.index("--mcp-bind") + 1:] == ["0.0.0.0", "--mcp-external-port", "3", "--mcp-name",
+                                                        "hustle.example.org"]

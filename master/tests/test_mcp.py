@@ -153,9 +153,14 @@ def test_interactive_submit_settles_push_and_check(world):
     store, _, endpoint, _, _ = world
     (settled,) = session(endpoint, "interactive-token", (
         "submit_hustle", {"project": "/repo/e", "title": "E", "brief": "b", "increments": spec(valid_plan()),
-                          "push": True, "verify": "uv run pytest -q"}))
+                          "push": "branch", "verify": "uv run pytest -q", "remote": "git@example.org:e.git"}))
     assert store.hustle(settled["hustle"]).project == "/repo/e"
-    assert (store.project("/repo/e").push, store.project("/repo/e").verify) == (True, "uv run pytest -q")
+    project = store.project("/repo/e")
+    assert (project.push, project.verify, project.remote) == ("branch", "uv run pytest -q", "git@example.org:e.git")
+    (wrong,) = session(endpoint, "interactive-token", (
+        "submit_hustle", {"project": "/repo/e", "title": "E", "brief": "b", "increments": spec(valid_plan()),
+                          "push": "yes"}))
+    assert wrong == ("error", "push must be one of off, branch, main")
 
 
 @pytest.mark.parametrize("role", ["worker", "overseer", "interactive"])

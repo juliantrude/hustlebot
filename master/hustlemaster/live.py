@@ -41,6 +41,7 @@ class Live:
         self.history: dict[str, list[list[dict]]] = {}
         self.events: list[dict] = []
         self.lock = threading.Lock()
+        self.push_now = None  # the service's, for the dashboard's Push button; without a service nothing pushes
 
     def started(self, hustle: str, increment: str, model: str) -> None:
         with self.lock:
@@ -130,10 +131,20 @@ class Live:
                     "graph_version": f"{h.version}:" + "".join(i.state[0] for i in h.increments),
                     "increments": [{"id": i.id, "after": i.after, "state": i.state, "model": i.model}
                                    for i in h.increments],
+                    "push": self._push(h),
                 }
                 for h in order
             ],
         }
+
+    def _push(self, hustle) -> dict | None:
+        """What the card says about pushing (ADR 0016); None if the project does not push."""
+        project = self.store.project(hustle.project)
+        if project is None or not project.remote or project.push == "off":
+            return None
+        state = self.store.push_state(hustle.id)
+        return {"mode": project.push, "remote": project.remote, "pending": state.pending is not None,
+                "error": state.error, "last_ok": state.last_ok}
 
     def _auto_approved(self, hustles: dict) -> list[dict]:
         # Every automatic approval stays visible until revoked (ADR 0015); only the one the plan is confirmed on

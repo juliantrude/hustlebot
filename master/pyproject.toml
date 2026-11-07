@@ -3,7 +3,9 @@ name = "hustlemaster"
 version = "0.1.0"
 description = "hustlebot v2: one background service per machine that runs several hustles in parallel"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "mcp>=2.3.0",
+]
 
 [dependency-groups]
 dev = ["pytest>=8", "playwright>=1.48"]

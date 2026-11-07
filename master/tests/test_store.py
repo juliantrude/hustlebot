@@ -178,3 +178,29 @@ def test_everything_survives_a_restart(tmp_path):
     assert h.active and h.confirmed_version == 1 and h.increments[0].state == "running"
     assert h.points_in_use() == 2
     second.close()
+
+
+def test_store_is_shared_safely_between_threads(tmp_path):
+    # the dashboard, the MCP endpoint and the runner each use the store from their own thread
+    import threading
+
+    s = Store(tmp_path / "h.db")
+    hid = s.submit("/repo", "t", "b", valid_plan(), author="user")
+    errors = []
+
+    def work(n):
+        try:
+            for k in range(20):
+                s.propose(hid, f"{n}-{k}", author="worker")
+                s.change_plan(hid, valid_plan(), author="overseer")
+        except Exception as err:  # noqa: BLE001 - any failure fails the test below
+            errors.append(err)
+
+    threads = [threading.Thread(target=work, args=(n,)) for n in range(6)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert errors == []
+    assert len(s.proposals(hid)) == 120
+    assert [v.version for v in s.versions(hid)] == list(range(1, 122))

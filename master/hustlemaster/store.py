@@ -7,8 +7,10 @@ applies to the next attempt and must not reset what already happened.
 
 from __future__ import annotations
 
+import functools
 import json
 import sqlite3
+import threading
 import time
 import uuid
 from dataclasses import dataclass, field, fields, replace
@@ -63,6 +65,15 @@ CREATE TABLE IF NOT EXISTS progress (
     peak_context INTEGER NOT NULL DEFAULT 0,
     PRIMARY KEY (hustle, increment)
 );
+CREATE TABLE IF NOT EXISTS proposals (
+    id INTEGER PRIMARY KEY,
+    hustle TEXT NOT NULL REFERENCES hustles(id),
+    increment TEXT,  -- the increment the proposing worker runs, if any
+    author TEXT NOT NULL,
+    text TEXT NOT NULL,
+    state TEXT NOT NULL DEFAULT 'open',  -- open until an event overseer has handled it (ADR 0015)
+    created REAL NOT NULL
+);
 """
 
 AUTO_APPROVE = ("off", "limited", "all")
@@ -86,6 +97,17 @@ class Project:
 
 
 @dataclass
+class Proposal:
+    id: int
+    hustle: str
+    increment: str | None
+    author: str
+    text: str
+    state: str
+    created: float
+
+
+@dataclass
 class PlanVersion:
     version: int
     author: str
@@ -96,7 +118,10 @@ class PlanVersion:
 
 class Store:
     def __init__(self, path: str | Path = ":memory:") -> None:
-        self.db = sqlite3.connect(str(path), isolation_level=None)
+        # One connection shared by the dashboard, the MCP endpoint and the runner threads; the lock keeps their
+        # transactions from interleaving on it.
+        self.db = sqlite3.connect(str(path), isolation_level=None, check_same_thread=False)
+        self._lock = threading.RLock()
         self.db.row_factory = sqlite3.Row
         self.db.execute("PRAGMA foreign_keys = ON")
         self.db.executescript(SCHEMA)
@@ -237,6 +262,26 @@ class Store:
     def note_peak_context(self, hustle_id: str, increment: str, tokens: int) -> None:
         self._progress(hustle_id, increment, "peak_context = MAX(peak_context, ?)", tokens)
 
+    # proposals
+
+    def propose(self, hustle_id: str, text: str, *, author: str, increment: str | None = None) -> int:
+        """A worker's plan change request; it changes nothing until an overseer acts on it (ADR 0015)."""
+        self._require(hustle_id)
+        if not text.strip():
+            raise ValueError("a proposal needs a text")
+        cursor = self.db.execute(
+            "INSERT INTO proposals (hustle, increment, author, text, created) VALUES (?, ?, ?, ?, ?)",
+            (hustle_id, increment, author, text, time.time()),
+        )
+        return cursor.lastrowid
+
+    def proposals(self, hustle_id: str, *, state: str | None = None) -> list[Proposal]:
+        rows = self.db.execute(
+            "SELECT * FROM proposals WHERE hustle = ? AND (? IS NULL OR state = ?) ORDER BY id",
+            (hustle_id, state, state),
+        ).fetchall()
+        return [Proposal(**dict(r)) for r in rows]
+
     # internals
 
     def _check(self, increments: list[Increment]) -> None:
@@ -291,3 +336,17 @@ class Store:
         )
         if cursor.rowcount == 0:
             raise KeyError(f"unknown increment {increment!r} in hustle {hustle_id!r}")
+
+
+def _locked(method):
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        with self._lock:
+            return method(self, *args, **kwargs)
+
+    return wrapper
+
+
+for _name, _member in list(vars(Store).items()):
+    if callable(_member) and not _name.startswith("_"):
+        setattr(Store, _name, _locked(_member))

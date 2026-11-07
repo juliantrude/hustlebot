@@ -19,6 +19,7 @@ accounting keep the hustlemaster informed meanwhile, and the safety net keeps it
 from __future__ import annotations
 
 import os
+import signal
 import re
 import threading
 import time
@@ -353,4 +354,17 @@ def read_screen(cwd: Path | str, *, command: tuple[str, ...] = ("claude",), env:
             child.sendcontrol("c")
         except OSError:
             pass
+        _close(child)
+
+
+def _close(child) -> None:
+    """End the hidden session for good. A busy `claude` can outlive pexpect's SIGHUP/SIGINT/SIGKILL rounds by a
+    moment; that must not throw away the reading this attempt already has, nor leave the process behind."""
+    try:
         child.close(force=True)
+    except Exception:  # ptyprocess.PtyProcessError: "Could not terminate the child."
+        try:
+            os.kill(child.pid, signal.SIGKILL)
+            os.waitpid(child.pid, 0)
+        except (OSError, ChildProcessError):
+            pass

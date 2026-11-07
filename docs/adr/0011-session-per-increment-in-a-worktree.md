@@ -45,6 +45,23 @@ job. ADR 0007 has the Executor commit directly to `main`.
   a worktree loads the project's `CLAUDE.md`, the checked-in `.claude/settings.json` with
   its hooks, and even the main checkout's gitignored `settings.local.json`. Auto memory is
   shared with the main checkout.
-- Not documented by Claude Code and to be verified first in the runner milestone: whether
-  `-p` sessions ask for approval of servers from `--mcp-config`, and how a
-  `--plugin-dir` plugin interacts with the user's installed plugins.
+- Verified with real Haiku sessions (`master/prototypes/runner_probe.py`, Claude Code
+  2.1.314), the two behaviours Claude Code does not document:
+  - **`--mcp-config` servers need no approval** in a `-p` session: the server shows up as
+    `connected` (source `dynamic`) at once, and `${HUSTLEMASTER_TOKEN}` in the header is
+    expanded from the environment — the session saw exactly the worker's tools.
+    `--strict-mcp-config` also drops the MCP servers that installed plugins bring (the
+    Figma plugin's server was gone), so a hustlebot reaches no MCP server but the
+    hustlemaster.
+  - **Calling those tools is still a permission question.** Without an allow rule the call
+    is denied and listed under `permission_denials` in the result; with `--allowedTools
+    mcp__hustlemaster__<tool>` it goes through. The runner therefore passes allow rules for
+    the hustlemaster's tools, and has to settle the permission mode for the rest of the
+    work (edits, shell) when it starts sessions.
+  - **A `--plugin-dir` plugin loads next to the installed plugins** as `<name>@inline`, its
+    skills namespaced `<name>:<skill>`; installed plugins and their skills stay available.
+    **If its name equals an installed plugin's, it replaces that plugin for the session**:
+    with an inline `hustlebot`, the installed `hustlebot@juliantrude` and its skills
+    (`advance-goal`, `hustle`, …) were gone. The internal plugin is therefore named
+    `hustlebot`, so a hustlebot sees the worker and overseer skills and never the loop or
+    planning skills of the installed plugin.

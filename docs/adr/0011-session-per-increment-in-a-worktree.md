@@ -37,10 +37,31 @@ job. ADR 0007 has the Executor commit directly to `main`.
 - When the increment is verified: rebase onto `main`, verify again, fast-forward `main`,
   remove the worktree. A rebase conflict is resolved by the same increment's session
   first; it counts as one attempt (ADR 0015).
+- **"Verify again"** is the project's own check command, kept per project by the
+  hustlemaster and set by `/hustle` while planning (e.g. `uv run pytest -q`). It runs in
+  the worktree after the rebase, on exactly the commit: uncommitted and untracked
+  leftovers are discarded first, the copied ignored files stay. Without a command the
+  clean rebase is all that is checked and the acceptance overseer is the backstop. A
+  short re-verification session was rejected: it would cost points on every merge.
+- Merges into one repository run one at a time. `main` moves only by fast-forward: where
+  it is checked out with `git merge --ff-only` in that checkout (git refuses rather than
+  overwrite the user's local changes), elsewhere with a compare-and-swap `update-ref`.
+  The outcomes: **merged**; **no commit**, **conflict** or **check failed**, each a
+  failed attempt whose next session is told what went wrong; **main busy** (local
+  changes in the way, or `main` moved during the check), retried later at no cost.
+  Several commits are squashed into one with all their messages rather than failing the
+  attempt. A failed push leaves the merge standing and is reported.
 - **Pushing** is a per-project switch, set by `/hustle` while planning, default off, with
   an explicit question for public repos. When on, only the hustlemaster pushes, after
   each fast-forward of `main`; a hustlebot never pushes.
 - On a hustlemaster restart, orphaned worktrees are found and their increments resumed.
+  Each run directory keeps the session's pid; per worktree of a known increment the last
+  run decides: a session still running (pid alive and its command line names the run's
+  MCP config, so a reused pid does not count) is waited for, one that reported `done` is
+  merged, anything else — failed, cut off without a result, never started — is resumed
+  in the same worktree. A branch already contained in `main` that moved since its
+  creation (the branch's oldest reflog entry) was fast-forwarded before the restart; the
+  merge then only removes the worktree.
 
 ## Consequences
 

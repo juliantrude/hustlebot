@@ -148,8 +148,11 @@ def test_weight_and_project_switches(store):
         store.set_weight("nope", 2)
     store.set_project("/repo", push=True)
     store.set_project("/repo", copy_excludes=["*.sqlite"])
+    store.set_project("/repo", verify="uv run pytest -q")
     p = store.project("/repo")
-    assert (p.push, p.copy_excludes) == (True, ["*.sqlite"])
+    assert (p.push, p.copy_excludes, p.verify) == (True, ["*.sqlite"], "uv run pytest -q")
+    assert store.set_project("/repo", verify="").verify is None
+    assert store.project("/repo").push is True
 
 
 def test_settings_defaults_and_validation(store):

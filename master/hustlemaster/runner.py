@@ -85,7 +85,9 @@ REPORT_FORMAT = f"""End your final message with exactly one report block, nothin
 showed. `proposals` are plan changes you suggest for the hustle, as plain sentences; leave it empty if none."""
 
 
-def prompt(hustle: Hustle, increment: Increment) -> str:
+def prompt(hustle: Hustle, increment: Increment, note: str | None = None) -> str:
+    # a resumed attempt learns what went wrong with the last one, e.g. a merge conflict (ADR 0015)
+    attempt = f"\n# This attempt\n\n{note.strip()}\n" if note else ""
     return f"""You are a hustlebot in {increment.mode} mode. Follow the skill `{SKILLS[increment.mode]}`.
 
 # Hustle: {hustle.title}
@@ -95,7 +97,7 @@ def prompt(hustle: Hustle, increment: Increment) -> str:
 # Increment {increment.id}: {increment.title}
 
 {increment.prompt.strip()}
-
+{attempt}
 # Report
 
 {REPORT_FORMAT}
@@ -252,12 +254,13 @@ class Runner:
         self.env = env
         self.permission_mode = permission_mode
 
-    def start(self, hustle: Hustle, increment: Increment, worktree: Path | str, *, allow_fable: bool) -> Hustlebot:
+    def start(self, hustle: Hustle, increment: Increment, worktree: Path | str, *, allow_fable: bool,
+              note: str | None = None) -> Hustlebot:
         if increment.model == "fable" and not allow_fable:
             # the plan was valid when it was stored; the setting may have been switched off since (ADR 0014)
             raise PermissionError(f"increment {increment.id} needs Fable, and allow_fable is off")
         run_dir = self._next_dir(hustle.id, increment.id)
-        text = prompt(hustle, increment)
+        text = prompt(hustle, increment, note)
         (run_dir / "prompt.md").write_text(text)
         config = run_dir / "mcp.json"
         config.write_text(json.dumps(self.mcp_config))
@@ -273,14 +276,24 @@ class Runner:
         except BaseException:
             self.tokens.revoke(token)
             raise
+        # after a restart the pid tells a session that still runs from one that was cut off
+        (run_dir / "pid").write_text(str(proc.pid))
         return Hustlebot(proc, run_dir, self.tokens, token)
 
     def _next_dir(self, hustle: str, increment: str) -> Path:
-        # one directory per attempt, numbered, so a resumed increment keeps the earlier streams; ids are free
-        # text, so they are made path-safe the way branch names are
-        base = self.runs / branch_name(hustle, increment).removeprefix(BRANCH_PREFIX)
-        base.mkdir(parents=True, exist_ok=True)
-        n = 1 + max((int(p.name) for p in base.iterdir() if p.name.isdigit()), default=0)
-        run_dir = base / str(n)
-        run_dir.mkdir()
+        # one directory per attempt, numbered, so a resumed increment keeps the earlier streams
+        last = last_run(self.runs, hustle, increment)
+        run_dir = _runs_of(self.runs, hustle, increment) / str(int(last.name) + 1 if last else 1)
+        run_dir.mkdir(parents=True)
         return run_dir
+
+
+def _runs_of(runs: Path | str, hustle: str, increment: str) -> Path:
+    # ids are free text, so they are made path-safe the way branch names are
+    return Path(runs).resolve() / branch_name(hustle, increment).removeprefix(BRANCH_PREFIX)
+
+
+def last_run(runs: Path | str, hustle: str, increment: str) -> Path | None:
+    base = _runs_of(runs, hustle, increment)
+    numbered = [p for p in base.iterdir() if p.name.isdigit()] if base.is_dir() else []
+    return max(numbered, key=lambda p: int(p.name), default=None)

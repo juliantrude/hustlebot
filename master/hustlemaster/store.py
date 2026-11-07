@@ -24,7 +24,8 @@ CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS projects (
     path TEXT PRIMARY KEY,
     push INTEGER NOT NULL DEFAULT 0,
-    copy_excludes TEXT  -- JSON list overriding the default excludes for gitignored files (ADR 0011); NULL = default
+    copy_excludes TEXT,  -- JSON list overriding the default excludes for gitignored files (ADR 0011); NULL = default
+    verify TEXT  -- shell command that checks the project after an increment's rebase onto main; NULL = none
 );
 CREATE TABLE IF NOT EXISTS hustles (
     id TEXT PRIMARY KEY,
@@ -94,6 +95,7 @@ class Project:
     path: str
     push: bool = False
     copy_excludes: list[str] | None = None
+    verify: str | None = None
 
 
 @dataclass
@@ -156,17 +158,21 @@ class Store:
         if row is None:
             return None
         excludes = json.loads(row["copy_excludes"]) if row["copy_excludes"] is not None else None
-        return Project(row["path"], bool(row["push"]), excludes)
+        return Project(row["path"], bool(row["push"]), excludes, row["verify"])
 
-    def set_project(self, path: str, *, push: bool | None = None, copy_excludes: list[str] | None = None) -> Project:
+    def set_project(self, path: str, *, push: bool | None = None, copy_excludes: list[str] | None = None,
+                    verify: str | None = None) -> Project:
         current = self.project(path) or Project(path)
         if push is not None:
             current.push = push
         if copy_excludes is not None:
             current.copy_excludes = copy_excludes
+        if verify is not None:
+            current.verify = verify or None  # "" clears it
         self.db.execute(
-            "INSERT OR REPLACE INTO projects VALUES (?, ?, ?)",
-            (path, int(current.push), json.dumps(current.copy_excludes) if current.copy_excludes is not None else None),
+            "INSERT OR REPLACE INTO projects VALUES (?, ?, ?, ?)",
+            (path, int(current.push), json.dumps(current.copy_excludes) if current.copy_excludes is not None else None,
+             current.verify),
         )
         return current
 

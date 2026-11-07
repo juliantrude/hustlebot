@@ -29,7 +29,7 @@ Independent increments run **at the same time**, each as its own session in its 
 ### 3 · Many hustles, weighted
 Run several goals at once, across repositories. Each active hustle gets a share of the machine's **session points** by its weight; points one cannot use go to the others.
 
-<img src="assets/readme/weights.svg" alt="20 points shared 10/5/5 by weights 2/1/1; docs uses only 2, so 12/2/6 are in use." width="100%">
+<img src="assets/readme/weights.svg" alt="20 points shared 10/5/5 by weights 2/1/1; web login uses only 2, so 12/2/6 are in use." width="100%">
 
 ### 4 · hustlemaster and hustlebots
 The **hustlemaster** is a plain service, not an agent: it stores the plans, reads `/usage`, schedules and merges. **hustlebots** are headless Claude Code sessions: workers implement one increment, overseers reshape the plan. The budget stays with you.

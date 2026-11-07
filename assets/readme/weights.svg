@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 250" width="900" height="250" role="img"
-     aria-label="Twenty session points shared by three hustles with weights two, one and one: ten, five and five. Docs needs only two, so its three spare points go to the other hustles: twelve, two and six are in use.">
+     aria-label="Twenty session points shared by three hustles with weights two, one and one: ten, five and five. Web login needs only two, so its three spare points go to the other hustles: twelve, two and six are in use.">
 <style>
   text{font-family:system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
   .t{font-size:14px;font-weight:600;fill:#0f1115}
@@ -12,8 +12,8 @@
 <text x="32" y="44" class="h">20 SESSION POINTS</text>
 <g class="m">
   <rect x="220" y="32" width="12" height="12" rx="3" fill="#5ab0f0"/><text x="240" y="43" style="fill:#e6e6e6">Checkout v2 · 2 fr</text>
-  <rect x="400" y="32" width="12" height="12" rx="3" fill="#4cc9d8"/><text x="420" y="43" style="fill:#e6e6e6">Docs · 1 fr</text>
-  <rect x="540" y="32" width="12" height="12" rx="3" fill="#a78bfa"/><text x="560" y="43" style="fill:#e6e6e6">Offline sync · 1 fr</text>
+  <rect x="400" y="32" width="12" height="12" rx="3" fill="#4cc9d8"/><text x="420" y="43" style="fill:#e6e6e6">Web login · 1 fr</text>
+  <rect x="566" y="32" width="12" height="12" rx="3" fill="#a78bfa"/><text x="586" y="43" style="fill:#e6e6e6">Offline sync · 1 fr</text>
 </g>
 
 <text x="32" y="98" class="h">SHARE</text>
@@ -28,5 +28,5 @@
 <rect x="583" y="150" width="66" height="40" rx="6" fill="#4cc9d8"/><text x="616" y="175" text-anchor="middle" class="t">2</text>
 <rect x="653" y="150" width="207" height="40" rx="6" fill="#a78bfa"/><text x="756" y="175" text-anchor="middle" class="t">6</text>
 
-<text x="160" y="222" class="m">Docs has work for only 2 points right now — its 3 spare points go to whoever is furthest below its share.</text>
+<text x="160" y="222" class="m">Web login has work for only 2 points right now — its 3 spare points go to whoever is furthest below its share.</text>
 </svg>

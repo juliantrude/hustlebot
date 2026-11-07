@@ -38,12 +38,12 @@ HUSTLES = [
         inc("client", "Checkout client", after=["cart", "payment"]),
         inc("accept", "Acceptance", "opus", ["client", "tax", "mails"], "overseer"),
     ]),
-    ("docs-site", "Docs search", 1, [
-        inc("index", "Search index"),
-        inc("guide", "Guide pages", "haiku"),
-        inc("ref", "API reference", "haiku"),
-        inc("ui", "Search box", after=["index"]),
-        inc("accept", "Acceptance", "opus", ["ui", "guide", "ref"], "overseer"),
+    ("web-app", "Web login", 1, [
+        inc("form", "Login form"),
+        inc("session", "Session cookie", "haiku"),
+        inc("errors", "Error states", "haiku"),
+        inc("e2e", "Login e2e test", after=["form", "session"]),
+        inc("accept", "Acceptance", "opus", ["e2e", "errors"], "overseer"),
     ]),
     ("mobile", "Offline sync", 1, [
         inc("store", "Local store"),

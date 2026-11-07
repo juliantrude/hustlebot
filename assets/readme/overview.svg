@@ -44,11 +44,11 @@
   <rect x="258" y="170" width="20" height="20" rx="3" transform="rotate(45 268 180)" fill="none" stroke="#a78bfa" stroke-width="2.5"/>
 </g>
 
-<circle cx="42" cy="252" r="5" fill="#5ee0b0"/><text x="54" y="257" class="g" fill="#5ee0b0">Docs search</text>
+<circle cx="42" cy="252" r="5" fill="#5ee0b0"/><text x="54" y="257" class="g" fill="#5ee0b0">Web login</text>
 <g>
   <path class="e" d="M144 280 C166 280 172 300 194 300"/><path class="e" d="M144 320 C166 320 172 300 194 300"/>
   <path class="e" d="M216 300 L256 300"/>
-  <circle cx="133" cy="280" r="10" fill="#4cc9d8"/><circle cx="133" cy="320" r="10" fill="#4cc9d8"/>
+  <circle cx="133" cy="280" r="10" fill="#d8a548"/><circle cx="133" cy="320" r="10" fill="#4cc9d8"/>
   <circle cx="205" cy="300" r="10" fill="#d8a548"/>
   <rect x="258" y="290" width="20" height="20" rx="3" transform="rotate(45 268 300)" fill="none" stroke="#a78bfa" stroke-width="2.5"/>
 </g>
@@ -91,15 +91,15 @@
 </g>
 
 <rect x="636" y="246" width="320" height="104" rx="12" fill="#5ee0b0" fill-opacity=".05" stroke="#5ee0b0" stroke-opacity=".55" stroke-dasharray="5 4"/>
-<text x="652" y="268" class="g" fill="#5ee0b0">Docs search</text><text x="940" y="268" text-anchor="end" class="m">2 at once</text>
+<text x="652" y="268" class="g" fill="#5ee0b0">Web login</text><text x="940" y="268" text-anchor="end" class="m">2 at once</text>
 <g>
-  <rect x="652" y="280" width="140" height="56" rx="10" fill="#171a21" stroke="#2a3242"/><rect x="652" y="280" width="5" height="56" rx="2" fill="#4cc9d8"/>
-  <text x="668" y="303" class="t">guide</text><text x="780" y="303" text-anchor="end" class="m">haiku</text>
+  <rect x="652" y="280" width="140" height="56" rx="10" fill="#171a21" stroke="#2a3242"/><rect x="652" y="280" width="5" height="56" rx="2" fill="#d8a548"/>
+  <text x="668" y="303" class="t">form</text><text x="780" y="303" text-anchor="end" class="m">sonnet</text>
   <rect x="668" y="316" width="112" height="6" rx="3" fill="#232833"/><rect class="bar b3" x="668" y="316" width="112" height="6" rx="3" fill="#5ee0b0"/>
 </g>
 <g>
   <rect x="800" y="280" width="140" height="56" rx="10" fill="#171a21" stroke="#2a3242"/><rect x="800" y="280" width="5" height="56" rx="2" fill="#4cc9d8"/>
-  <text x="816" y="303" class="t">reference</text><text x="928" y="303" text-anchor="end" class="m">haiku</text>
+  <text x="816" y="303" class="t">session</text><text x="928" y="303" text-anchor="end" class="m">haiku</text>
   <rect x="816" y="316" width="112" height="6" rx="3" fill="#232833"/><rect class="bar b4" x="816" y="316" width="112" height="6" rx="3" fill="#5ee0b0"/>
 </g>
 <text x="644" y="378" class="m">within a hustle and across hustles</text>
@@ -113,7 +113,7 @@
 <line x1="1020" y1="146" x2="1170" y2="146" stroke="#5ab0f0" stroke-width="3" stroke-linecap="round"/>
 <circle class="commit" cx="1036" cy="146" r="7" fill="#5ab0f0"/><circle class="commit k2" cx="1076" cy="146" r="7" fill="#5ab0f0"/>
 <circle class="commit k3" cx="1116" cy="146" r="7" fill="#5ab0f0"/><circle class="commit k4" cx="1156" cy="146" r="7" fill="#5ab0f0"/>
-<text x="1020" y="278" class="m">docs-site · <tspan class="t" style="font-size:13px">main</tspan></text>
+<text x="1020" y="278" class="m">web-app · <tspan class="t" style="font-size:13px">main</tspan></text>
 <line x1="1020" y1="298" x2="1170" y2="298" stroke="#5ee0b0" stroke-width="3" stroke-linecap="round"/>
 <circle class="commit k2" cx="1036" cy="298" r="7" fill="#5ee0b0"/><circle class="commit k4" cx="1076" cy="298" r="7" fill="#5ee0b0"/>
 <circle class="commit" cx="1116" cy="298" r="7" fill="#5ee0b0"/>

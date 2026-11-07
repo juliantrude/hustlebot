@@ -36,30 +36,57 @@ def test_plugin_is_named_like_the_installed_one():
     assert manifest["name"] == PLUGIN == "hustlebot"
 
 
-def test_worker_skill_is_where_the_prompt_points():
-    meta, body = skill("worker")
-    assert meta["name"] == SKILLS["worker"].split(":")[1]
+@pytest.mark.parametrize("mode", SKILLS)
+def test_skill_is_where_the_prompt_points(mode: str):
+    meta, body = skill(mode)
+    assert meta["name"] == SKILLS[mode].split(":")[1]
     assert meta["description"]
     assert body.strip()
 
 
-def test_worker_skill_names_every_report_status():
-    _, body = skill("worker")
+@pytest.mark.parametrize("mode", SKILLS)
+def test_skill_names_every_report_status(mode: str):
+    # the overseer names `too-big` only to rule it out, but a status left unexplained gets guessed at
+    _, body = skill(mode)
     for status in REPORT_STATUSES:
         assert f"`{status}`" in body, status
 
 
-def test_worker_skill_names_only_worker_tools():
-    _, body = skill("worker")
+@pytest.mark.parametrize("mode", SKILLS)
+def test_skill_names_only_its_roles_tools(mode: str):
+    _, body = skill(mode)
     named = {tool for tool in ALL_TOOLS if re.search(rf"\b{tool}\b", body)}
-    assert named, "the worker skill names none of its tools"
-    assert named <= RIGHTS["worker"], named - RIGHTS["worker"]
+    assert named == RIGHTS[mode], (named - RIGHTS[mode], RIGHTS[mode] - named)
 
 
 def test_worker_skill_asks_for_exactly_one_commit_and_no_push():
     _, body = skill("worker")
     assert "exactly one" in body.lower()
     assert "never push" in body.lower()
+
+
+def test_overseer_skill_knows_both_modes_and_the_plan_rules():
+    _, body = skill("overseer")
+    text = " ".join(body.lower().split())
+    # how the runner and `events.overseer_increment` tell the two situations apart
+    assert "`event-`" in body and "an event in this hustle needs an overseer" in text
+    assert "acceptance mode" in text and "definition of done" in text
+    # what `Store.change_plan` and `plan.check` demand, and what keeps a split's worktree with its work
+    assert "pass **every** increment" in text
+    assert "first part keeps the original id" in text
+    assert "depends, directly or through others, on every other increment" in text
+    assert "approval" in text
+    assert "commit nothing in acceptance mode" in text
+
+
+def test_overseer_skill_tells_the_situations_the_prompt_creates():
+    # every event kind `events.record` / `sync_proposals` can open must be one the skill tells how to decide
+    from hustlemaster.events import PURPOSE
+
+    _, body = skill("overseer")
+    event_mode = body[body.index("## 2. Event mode"):body.index("## 3.")]
+    for kind in PURPOSE:
+        assert f"`{kind}`" in event_mode, kind
 
 
 def test_runner_hands_the_packaged_plugin(tmp_path: Path):

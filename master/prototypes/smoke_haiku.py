@@ -7,8 +7,8 @@ Wires the pieces the way the hustlemaster will: `Store` holds the plan, the MCP 
 `merge.merge` rebases, re-verifies with the project's command and fast-forwards `main`.
 
 A and B are independent and touch disjoint files, so they run in parallel and the second merge has to rebase onto
-the first — the path a sequential pair would never take. The acceptance increment is an overseer and its skill does
-not exist yet, so it is left out. The sessions get the packaged internal plugin (`PLUGIN_DIR`), so this also
+the first — the path a sequential pair would never take. The acceptance increment is an overseer; this smoke run
+leaves it out (`overseer_haiku.py` checks the overseer skill). The sessions get the packaged internal plugin (`PLUGIN_DIR`), so this also
 checks the real worker skill. At most four real sessions (one retry each).
 """
 

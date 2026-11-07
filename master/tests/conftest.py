@@ -26,6 +26,8 @@ class FakeClaude:
         for step in steps:
             if isinstance(step.get("result"), str):
                 step["result"] = str(FIXTURES / "results" / step["result"])
+            if step.get("stream"):
+                step["stream"] = str(FIXTURES / "streams" / step["stream"])
         self.file.write_text(json.dumps(steps))
 
     def calls(self) -> list[dict]:

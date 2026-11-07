@@ -4,6 +4,7 @@
 FAKE_CLAUDE_SCRIPT names a JSON file with a list of steps; call n plays step n. A step:
 
     {"result": "results/haiku-ok.json",  # recorded result, relative to the script file (or an inline object)
+     "stream": "streams/haiku-tools.jsonl",  # or a recorded `stream-json` run, replayed line by line
      "text": "...",                      # replaces the result's "result" field, e.g. to carry a report block
      "run": "git commit ...",            # shell command run in the session's cwd first, to fake the work
      "sleep": 0.5, "exit": 0, "stderr": ""}
@@ -42,6 +43,12 @@ def main() -> int:
     if step.get("run"):
         subprocess.run(step["run"], shell=True, check=True, stdout=subprocess.DEVNULL)
     time.sleep(step.get("sleep", 0))
+    if step.get("stream"):
+        for line in (script.parent / step["stream"]).read_text().splitlines():
+            event = json.loads(line)
+            if event.get("type") == "result" and "text" in step:
+                event["result"] = step["text"]
+            print(json.dumps(event), flush=True)
     result = step.get("result")
     if isinstance(result, str):
         result = json.loads((script.parent / result).read_text())

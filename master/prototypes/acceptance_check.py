@@ -97,7 +97,7 @@ def main(root: Path) -> None:
     log = open(root / "server.log", "w")
     proc = subprocess.Popen(
         [sys.executable, "-m", "hustlemaster.server", "--db", str(home / "hustlemaster.db"), "--home", str(home),
-         "--port", str(port), "--mcp-port", str(mcp_port), "--claude", str(fake.path)],
+         "--port", str(port), "--mcp-port", str(mcp_port), "--claude", str(fake.path), "--projects", str(root)],
         env=fake.env(), cwd=MASTER, stdout=log, stderr=subprocess.STDOUT,
     )
     try:
@@ -118,8 +118,8 @@ def main(root: Path) -> None:
              "mode": "overseer", "after": ["SLOW", "D"]},
         ]
         (submitted,) = mcp(mcp_port, interactive, ("submit_hustle", {
-            "project": str(repo), "title": "Acceptance hustle", "brief": "North star: four files.",
-            "increments": plan, "push": False, "verify": "test -f README.md"}))
+            "project": repo.name, "title": "Acceptance hustle", "brief": "North star: four files.",
+            "increments": plan, "push": "off", "verify": "test -f README.md"}))
         hid = submitted["hustle"]
         print(f"  ok: submitted {hid} over MCP")
 

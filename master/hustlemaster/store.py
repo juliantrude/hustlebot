@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS progress (
     state TEXT NOT NULL DEFAULT 'open',
     attempts INTEGER NOT NULL DEFAULT 0,
     peak_context INTEGER NOT NULL DEFAULT 0,
+    note TEXT,  -- what the increment's next session must know, e.g. why the last attempt failed; read once
     PRIMARY KEY (hustle, increment)
 );
 CREATE TABLE IF NOT EXISTS proposals (
@@ -72,12 +73,27 @@ CREATE TABLE IF NOT EXISTS proposals (
     increment TEXT,  -- the increment the proposing worker runs, if any
     author TEXT NOT NULL,
     text TEXT NOT NULL,
-    state TEXT NOT NULL DEFAULT 'open',  -- open until an event overseer has handled it (ADR 0015)
+    state TEXT NOT NULL DEFAULT 'open',  -- open, taken by an event overseer, then handled or dropped (ADR 0015)
+    created REAL NOT NULL
+);
+CREATE TABLE IF NOT EXISTS events (
+    id INTEGER PRIMARY KEY,
+    hustle TEXT NOT NULL REFERENCES hustles(id),
+    increment TEXT,  -- the increment the event overseer works on; it waits meanwhile. NULL for proposals
+    kind TEXT NOT NULL,
+    detail TEXT NOT NULL DEFAULT '',
+    proposals TEXT NOT NULL DEFAULT '[]',  -- JSON list of the proposal ids the overseer decides on
+    state TEXT NOT NULL DEFAULT 'open',
     created REAL NOT NULL
 );
 """
 
 AUTO_APPROVE = ("off", "limited", "all")
+# Why an event overseer is started (ADR 0015), and how far it got: `open` until it starts and again when the limit
+# cut it off, `running`, then `handled` or `failed`.
+EVENT_KINDS = ("failed", "too-big", "conflict", "proposal")
+EVENT_STATES = ("open", "running", "handled", "failed")
+PENDING_EVENTS = ("open", "running")
 
 
 @dataclass
@@ -105,6 +121,18 @@ class Proposal:
     increment: str | None
     author: str
     text: str
+    state: str
+    created: float
+
+
+@dataclass
+class Event:
+    id: int
+    hustle: str
+    increment: str | None
+    kind: str
+    detail: str
+    proposals: list[int]
     state: str
     created: float
 
@@ -268,6 +296,18 @@ class Store:
     def note_peak_context(self, hustle_id: str, increment: str, tokens: int) -> None:
         self._progress(hustle_id, increment, "peak_context = MAX(peak_context, ?)", tokens)
 
+    def leave_note(self, hustle_id: str, increment: str, note: str | None) -> None:
+        self._progress(hustle_id, increment, "note = ?", note)
+
+    def take_note(self, hustle_id: str, increment: str) -> str | None:
+        """The note for the increment's next session; it is handed over once."""
+        row = self.db.execute("SELECT note FROM progress WHERE hustle = ? AND increment = ?",
+                              (hustle_id, increment)).fetchone()
+        if row is None:
+            raise KeyError(f"unknown increment {increment!r} in hustle {hustle_id!r}")
+        self._progress(hustle_id, increment, "note = NULL")
+        return row["note"]
+
     # proposals
 
     def propose(self, hustle_id: str, text: str, *, author: str, increment: str | None = None) -> int:
@@ -287,6 +327,54 @@ class Store:
             (hustle_id, state, state),
         ).fetchall()
         return [Proposal(**dict(r)) for r in rows]
+
+    # events
+
+    def open_event(self, hustle_id: str, kind: str, *, increment: str | None = None, detail: str = "",
+                   proposals: list[int] = ()) -> int:
+        """Ask for an event overseer. Until it has handled the event, the increment it is about waits."""
+        self._require(hustle_id)
+        if kind not in EVENT_KINDS:
+            raise ValueError(f"unknown event kind {kind!r}")
+        with self.db:
+            self.db.execute("BEGIN")
+            cursor = self.db.execute(
+                "INSERT INTO events (hustle, increment, kind, detail, proposals, created) VALUES (?, ?, ?, ?, ?, ?)",
+                (hustle_id, increment, kind, detail, json.dumps(list(proposals)), time.time()),
+            )
+            self.db.executemany("UPDATE proposals SET state = 'taken' WHERE id = ? AND state = 'open'",
+                                [(p,) for p in proposals])
+        return cursor.lastrowid
+
+    def events(self, hustle_id: str | None = None, *, states: tuple[str, ...] | None = None) -> list[Event]:
+        rows = self.db.execute(
+            "SELECT * FROM events WHERE (? IS NULL OR hustle = ?) ORDER BY id", (hustle_id, hustle_id)
+        ).fetchall()
+        found = [Event(**{**dict(r), "proposals": json.loads(r["proposals"])}) for r in rows]
+        return [e for e in found if states is None or e.state in states]
+
+    def event(self, event_id: int) -> Event:
+        row = self.db.execute("SELECT * FROM events WHERE id = ?", (event_id,)).fetchone()
+        if row is None:
+            raise KeyError(f"unknown event {event_id}")
+        return Event(**{**dict(row), "proposals": json.loads(row["proposals"])})
+
+    def set_event_state(self, event_id: int, state: str) -> None:
+        """Move an event on. Once it is over, its proposals are decided (or dropped with a failed overseer), and its
+        increment starts over with fresh attempts: the overseer changed it or found nothing to change."""
+        if state not in EVENT_STATES:
+            raise ValueError(f"unknown event state {state!r}")
+        event = self.event(event_id)
+        with self.db:
+            self.db.execute("BEGIN")
+            self.db.execute("UPDATE events SET state = ? WHERE id = ?", (state, event_id))
+            if state in PENDING_EVENTS:
+                return
+            decided = "handled" if state == "handled" else "dropped"
+            self.db.executemany("UPDATE proposals SET state = ? WHERE id = ?", [(decided, p) for p in event.proposals])
+            if event.increment is not None:
+                self.db.execute("UPDATE progress SET attempts = 0 WHERE hustle = ? AND increment = ?",
+                                (event.hustle, event.increment))
 
     # internals
 
@@ -315,7 +403,10 @@ class Store:
 
     def _increments(self, hustle_id: str, version: int) -> list[Increment]:
         rows = self.db.execute(
-            """SELECT p.*, g.state, g.attempts, g.peak_context FROM plan_increments p
+            """SELECT p.*, g.state, g.attempts, g.peak_context,
+                      EXISTS (SELECT 1 FROM events e WHERE e.hustle = p.hustle AND e.increment = p.id
+                              AND e.state IN ('open', 'running')) AS overseen
+               FROM plan_increments p
                JOIN progress g ON g.hustle = p.hustle AND g.increment = p.id
                WHERE p.hustle = ? AND p.version = ? ORDER BY p.position""",
             (hustle_id, version),
@@ -332,6 +423,7 @@ class Store:
                 mode=r["mode"],
                 attempts=r["attempts"],
                 peak_context=r["peak_context"],
+                held="overseer" if r["overseen"] else "",
             )
             for r in rows
         ]

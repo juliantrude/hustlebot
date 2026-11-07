@@ -6,7 +6,8 @@ cannot use go to the others. Whenever points are free they go to the hustle furt
 points in use over share, so a hustle that had to wait is served before one that borrowed. Nothing is remembered
 between calls: a hustle that borrowed never pays back, running sessions are never interrupted.
 
-Within a hustle an increment the limit cut off goes first (its worktree holds work in progress), then the plan
+Within a hustle a due event overseer goes first (it is about work that waits for it, ADR 0015) and holds the free
+points if it does not fit; then an increment the limit cut off (its worktree holds work in progress), then the plan
 order; a smaller increment of the same hustle may go ahead of one that does not fit. If none of the neediest
 hustle's ready increments fits, the free points are held for it and nobody else starts: were they handed to smaller
 increments elsewhere, an increment bigger than what happens to be free would never start. A hustle without ready
@@ -61,25 +62,29 @@ def in_use(sessions: Iterable[Session], hustle: str | None = None) -> int:
     return sum(POINTS[s.model] for s in sessions if hustle is None or s.hustle == hustle)
 
 
-def shares(hustles: Iterable[Hustle], total: int, sessions: Iterable[Session] | None = None) -> dict[str, float]:
-    """Guaranteed points per hustle in the pool: active, with an increment ready or a session running. Inactive or
-    fully blocked hustles hold no share."""
+def shares(hustles: Iterable[Hustle], total: int, sessions: Iterable[Session] | None = None,
+           overseers: Iterable[Start] = ()) -> dict[str, float]:
+    """Guaranteed points per hustle in the pool: active, with an increment or event overseer ready, or a session
+    running. Inactive or fully blocked hustles hold no share."""
     hustles = list(hustles)
     busy = {s.hustle for s in (running_sessions(hustles) if sessions is None else sessions)}
+    busy |= {o.hustle for o in overseers}
     pool = [h for h in hustles if h.active and (h.ready() or h.id in busy)]
     weights = sum(h.weight for h in pool)
     return {h.id: total * h.weight / weights for h in pool} if weights else {}
 
 
 def choose(hustles: list[Hustle], total: int, *, sessions: Iterable[Session] | None = None,
-           budget: Budget | None = None, settings=None, now: datetime | None = None) -> Decision:
+           overseers: Iterable[Start] = (), budget: Budget | None = None, settings=None,
+           now: datetime | None = None) -> Decision:
     """The increments to start now, in order. Pure: nothing is started, no state is changed.
 
-    `sessions` are the running ones, by default those the plans mark running. Without a `budget` only points
-    count, which is what the simulation uses."""
+    `sessions` are the running ones, by default those the plans mark running; `overseers` the event overseers
+    due (`events.due`). Without a `budget` only points count, which is what the simulation uses."""
     sessions = list(running_sessions(hustles) if sessions is None else sessions)
+    overseers = list(overseers)
     by_id = {h.id: h for h in hustles}
-    share = shares(hustles, total, sessions)
+    share = shares(hustles, total, sessions, overseers)
     decision = Decision()
     taken: set[tuple[str, str]] = set()  # chosen this call; the plans still say open
     unfit: set[str] = set()  # models the budget's fit check refused this call
@@ -96,7 +101,7 @@ def choose(hustles: list[Hustle], total: int, *, sessions: Iterable[Session] | N
         started = None
         for hustle_id in sorted(share, key=neediness):
             waiting = None
-            for inc, parked in _candidates(by_id[hustle_id], budget, taken):
+            for inc, parked in _candidates(by_id[hustle_id], overseers, budget, taken):
                 if inc.model in unfit:
                     continue
                 if budget is not None:
@@ -109,6 +114,8 @@ def choose(hustles: list[Hustle], total: int, *, sessions: Iterable[Session] | N
                         continue
                 if POINTS[inc.model] > free:
                     waiting = waiting or Start(hustle_id, inc.id, inc.model, parked)
+                    if inc.mode == "overseer":
+                        break  # its siblings may not go ahead: they would keep it from ever seeing enough free
                     continue
                 started = Start(hustle_id, inc.id, inc.model, parked)
                 break
@@ -125,7 +132,11 @@ def choose(hustles: list[Hustle], total: int, *, sessions: Iterable[Session] | N
         sessions.append(Session(started.hustle, started.increment, started.model))
 
 
-def _candidates(hustle: Hustle, budget: Budget | None, taken: set) -> list[tuple[Increment, bool]]:
+def _candidates(hustle: Hustle, overseers: list[Start], budget: Budget | None,
+                taken: set) -> list[tuple[Increment, bool]]:
+    events = [Increment(o.increment, "event overseer", o.model, [], mode="overseer")
+              for o in overseers if o.hustle == hustle.id]
     ready = [i for i in hustle.ready() if (hustle.id, i.id) not in taken]
     marked = [(i, bool(budget and budget.is_parked(hustle.id, i.id))) for i in ready]
-    return sorted(marked, key=lambda pair: not pair[1])  # stable: plan order within parked and within the rest
+    head = [(i, bool(budget and budget.is_parked(hustle.id, i.id))) for i in events if (hustle.id, i.id) not in taken]
+    return head + sorted(marked, key=lambda pair: not pair[1])  # stable: plan order within parked and the rest

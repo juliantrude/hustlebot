@@ -43,3 +43,28 @@ and without bypassing the user on cost.
 - The overseer replaces ADR 0003's "hand back to the Planner" for too-big items.
 - In charter mode (later) overseer increments also write new increments, guided by
   `VISION.md`.
+
+## As built: failures and event overseers (`hustlemaster/events.py`)
+
+- **Two failures, not three.** "After two unsuccessful resumes" read literally means three failed attempts; the
+  event list says "failed twice" and ADR 0003's guard handed off after two. Built: the second failed attempt of
+  an increment starts the event overseer (`FAILURES = 2`). Failed means a report `failed`, no usable report, or a
+  merge that counts as an attempt (`no-commit`, `conflict`, `verify-failed`); the second of those is a
+  `conflict` event when it was a conflict. A limit cut-off (parked) and a merge blocked by the user's own changes
+  (`main-busy`) cost no attempt.
+- **No resume for what a resume cannot fix.** A worker's `too-big` report starts the overseer at once, and so does
+  a worker's `blocked` report (as a `failed` event): another attempt would only say the same again.
+- **One event overseer per hustle at a time**, oldest event first, and none while a planned overseer increment of
+  the hustle runs: overseers change the plan, two at once would write over each other's plan versions. Open
+  proposals are gathered into one `proposal` event.
+- **An overseer holds the free points.** If a due event overseer does not fit, its hustle's smaller increments may
+  not go ahead of it (they could, for plan increments, ADR 0010): in a busy hustle the overseer would otherwise
+  never see enough free points, and the work it is about would wait forever.
+- **Strongest allowed model that the total can carry:** Fable if allowed, else Opus; with fewer total points than
+  that, the strongest model that fits at all.
+- **How it ends.** Reported `done`: the event is handled, the increment starts over with fresh attempts and is
+  told what the overseer said (unless the overseer split it away). Reported `blocked`: the increment is marked
+  blocked, only its dependants wait. Anything else fails the event and blocks the increment as well — the
+  overseer is the last automatic resort — and drops its proposals. Cut off at the limit, the event stays open.
+- While an event is open or running its increment is **held** (`Increment.held`), so it is not ready even when
+  its dependencies are done. The approvals increment uses the same field for pending approvals.

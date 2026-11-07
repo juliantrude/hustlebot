@@ -26,6 +26,7 @@ class Increment:
     mode: str = "worker"
     attempts: int = 0
     peak_context: int = 0  # tokens; sizing feedback for the next plans (ADR 0009)
+    held: str = ""  # why it may not start although its dependencies are done, e.g. an event overseer works on it
 
 
 @dataclass
@@ -45,7 +46,7 @@ class Hustle:
 
     def ready(self) -> list[Increment]:
         done = {i.id for i in self.increments if i.state == "done"}
-        return [i for i in self.increments if i.state == "open" and set(i.after) <= done]
+        return [i for i in self.increments if i.state == "open" and not i.held and set(i.after) <= done]
 
     def points_in_use(self) -> int:
         return sum(POINTS[i.model] for i in self.running())

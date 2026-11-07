@@ -39,7 +39,8 @@ answer and do not ask again.
   so and plan around it.
 - The project's **name** on the hustle host is the repository root's folder
   name (`basename "$(git rev-parse --show-toplevel)"`) unless the user names
-  another; letters, digits, `.`, `_`, `-`. The hustlemaster branches off and
+  another; letters, digits, `.`, `_`, `-`. Projects that belong together may
+  share one group folder: `group/name` (e.g. `final-lift/final-lift-api`). The hustlemaster branches off and
   merges into `main`; if the default branch has another name, tell the user
   before planning.
 - The project's **remote** on the hustle host is optional and at most one

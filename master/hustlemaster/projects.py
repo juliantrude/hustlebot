@@ -17,7 +17,8 @@ import re
 import subprocess
 from pathlib import Path
 
-NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
+# a project, optionally in one group folder ("final-lift/final-lift-api"): projects that belong together sit together
+NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}(/[A-Za-z0-9][A-Za-z0-9._-]{0,63})?")
 PUSH_MODES = ("off", "branch", "main")
 MAIN = "main"
 REMOTE = "origin"
@@ -47,7 +48,8 @@ def _why(out: subprocess.CompletedProcess) -> str:
 
 def path_for(root: Path | str, name: str) -> Path:
     if not NAME.fullmatch(name):
-        raise ProjectError(f"project name {name!r}: letters, digits, '.', '_' and '-' only, at most 64")
+        raise ProjectError(f"project name {name!r}: letters, digits, '.', '_' and '-', at most 64, optionally "
+                           f"behind one group folder (group/name)")
     return Path(root).expanduser().resolve() / name
 
 

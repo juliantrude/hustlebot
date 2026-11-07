@@ -64,7 +64,7 @@ def _quote(arg: str) -> str:
 
 def unit_text(*, uv: str, master: Path, where: Layout, claude: str, path: str, port: int, bind: str,
               mcp_port: int, projects: str = "~/hustles", mcp_bind: str | None = None, mcp_external_port: int = 8772,
-              mcp_names: list[str] | None = None) -> str:
+              mcp_names: list[str] | None = None, usage_cwd: str | None = None) -> str:
     command = [uv, "run", "--project", str(master), "--no-dev", "python", "-m", "hustlemaster.server",
                "--db", str(where.db), "--home", str(where.home), "--port", str(port), "--bind", bind,
                "--mcp-port", str(mcp_port), "--claude", claude, "--projects", projects]
@@ -72,6 +72,8 @@ def unit_text(*, uv: str, master: Path, where: Layout, claude: str, path: str, p
         command += ["--mcp-bind", mcp_bind, "--mcp-external-port", str(mcp_external_port)]
         for name in mcp_names or []:
             command += ["--mcp-name", name]
+    if usage_cwd:
+        command += ["--usage-cwd", usage_cwd]
     return f"""[Unit]
 Description=hustlemaster: runs the hustles on this machine (hustlebot v2)
 Wants=network-online.target
@@ -184,7 +186,8 @@ def install_client(url: str, token: str, master: Path = MASTER, *, env: dict[str
 def install(master: Path = MASTER, *, env: dict[str, str] | None = None, port: int = 8770, bind: str = "127.0.0.1",
             mcp_port: int = 8771, claude: str | None = None, uv: str | None = None, systemd: bool = True,
             start: bool = True, plugin: bool = True, projects: str = "~/hustles", mcp_bind: str | None = None,
-            mcp_external_port: int = 8772, mcp_names: list[str] | None = None, run=subprocess.run) -> Report:
+            mcp_external_port: int = 8772, mcp_names: list[str] | None = None, usage_cwd: str | None = None,
+            run=subprocess.run) -> Report:
     env = dict(os.environ if env is None else env)
     master = Path(master).resolve()
     if not (master / "hustlemaster" / "server.py").is_file():
@@ -203,7 +206,7 @@ def install(master: Path = MASTER, *, env: dict[str, str] | None = None, port: i
     where.unit.parent.mkdir(parents=True, exist_ok=True)
     where.unit.write_text(unit_text(uv=uv, master=master, where=where, claude=claude, path=env.get("PATH", ""),
                                     port=port, bind=bind, mcp_port=mcp_port, projects=projects, mcp_bind=mcp_bind,
-                                    mcp_external_port=mcp_external_port, mcp_names=mcp_names))
+                                    mcp_external_port=mcp_external_port, mcp_names=mcp_names, usage_cwd=usage_cwd))
     if mcp_bind:
         report.done.append(f"external MCP endpoint on {mcp_bind}:{mcp_external_port}, interactive token only")
     report.done.append(f"unit {where.unit}")
@@ -243,6 +246,7 @@ def parser() -> argparse.ArgumentParser:
     parser.add_argument("--mcp-external-port", type=int, default=8772)
     parser.add_argument("--mcp-name", action="append", default=[],
                         help="a host name the external MCP endpoint answers to (the reverse proxy's); repeatable")
+    parser.add_argument("--usage-cwd", help="a folder Claude Code trusts, for reading /usage (default: a project)")
     parser.add_argument("--claude", help="the claude executable; default: the one on PATH")
     parser.add_argument("--no-systemd", dest="systemd", action="store_false",
                         help="write the unit but leave systemd alone")
@@ -263,7 +267,7 @@ def main(argv: list[str] | None = None) -> int:
             report = install(port=args.port, bind=args.bind, mcp_port=args.mcp_port, claude=args.claude,
                              systemd=args.systemd, start=args.start, plugin=args.plugin, projects=args.projects,
                              mcp_bind=args.mcp_bind, mcp_external_port=args.mcp_external_port,
-                             mcp_names=args.mcp_name)
+                             mcp_names=args.mcp_name, usage_cwd=args.usage_cwd)
     except InstallError as err:
         print(f"install failed: {err}", file=sys.stderr)
         return 1

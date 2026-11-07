@@ -45,10 +45,11 @@ def laptop(tmp_path):
 
 
 def test_names_are_plain():
-    for bad in ("", "../etc", "a/b", ".hidden", "x" * 65):
+    for bad in ("", "../etc", "a/../b", "a/b/c", "a/", "/a", ".hidden", "g/.x", "x" * 65):
         with pytest.raises(projects.ProjectError):
             projects.path_for("/r", bad)
     assert projects.path_for("/r", "my-app.v2") == Path("/r/my-app.v2")
+    assert projects.path_for("/r", "group/app") == Path("/r/group/app")
 
 
 def test_with_a_remote_the_repository_is_cloned_and_follows_it(laptop, tmp_path):

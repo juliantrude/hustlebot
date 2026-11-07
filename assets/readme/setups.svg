@@ -1,0 +1,50 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 300" width="900" height="300" role="img"
+     aria-label="Two ways to run it. Local: Claude Code, the hustlemaster and the repositories on one machine. On a VM: your laptop is a client that pushes its commit to the hustle host; the host works the hustle, optionally pushes to the remote, and you fetch the results.">
+<style>
+  text{font-family:system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
+  .t{font-size:15px;font-weight:600;fill:#e6e6e6}
+  .m{font-size:13px;fill:#8a94a6}
+  .c{font-size:12px;fill:#c8d0dc;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .h{font-size:11px;font-weight:700;fill:#8a94a6;letter-spacing:.12em}
+  .e{stroke:#4b5a74;stroke-width:1.6;fill:none;marker-end:url(#a)}
+</style>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#4b5a74"/></marker></defs>
+<rect width="900" height="300" rx="16" fill="#0f1115"/>
+<rect x=".5" y=".5" width="899" height="299" rx="16" fill="none" stroke="#232833"/>
+
+<!-- local -->
+<text x="32" y="42" class="h">LOCAL · ONE MACHINE</text>
+<rect x="32" y="56" width="300" height="178" rx="12" fill="#171a21" stroke="#2a3242"/>
+<text x="48" y="82" class="t">laptop / workstation</text>
+<rect x="48" y="96" width="268" height="34" rx="8" fill="#0f1115" stroke="#2a3242"/><text x="62" y="118" class="m"><tspan style="fill:#e6e6e6">Claude Code</tspan> · /hustle</text>
+<rect x="48" y="138" width="268" height="34" rx="8" fill="#10263a" stroke="#5ab0f0" stroke-opacity=".6"/><text x="62" y="160" class="m"><tspan style="fill:#e6e6e6">hustlemaster</tspan> · systemd user unit</text>
+<rect x="48" y="180" width="268" height="34" rx="8" fill="#0f1115" stroke="#2a3242"/><text x="62" y="202" class="m"><tspan style="fill:#e6e6e6">your repos</tspan> · worktrees per increment</text>
+<text x="32" y="262" class="c">python -m hustlemaster.install</text>
+
+<!-- vm -->
+<text x="376" y="42" class="h">REMOTE · HUSTLE HOST ON A VM</text>
+<rect x="376" y="56" width="150" height="178" rx="12" fill="#171a21" stroke="#2a3242"/>
+<text x="392" y="82" class="t">laptop</text>
+<text x="392" y="106" class="m">client install:</text>
+<text x="392" y="124" class="m">/hustle + MCP entry</text>
+<text x="392" y="160" class="m">plan here,</text>
+<text x="392" y="178" class="m">review with</text>
+<text x="392" y="196" class="c">git fetch</text>
+
+<rect x="608" y="56" width="160" height="178" rx="12" fill="#10263a" stroke="#5ab0f0" stroke-opacity=".6"/>
+<text x="624" y="82" class="t">VM</text>
+<text x="624" y="106" class="m">hustlemaster</text>
+<text x="624" y="124" class="m">~/hustles/&lt;project&gt;</text>
+<text x="624" y="142" class="m">dashboard via TLS</text>
+<text x="624" y="178" class="m">never connects</text>
+<text x="624" y="196" class="m">back to you</text>
+
+<rect x="800" y="56" width="76" height="80" rx="12" fill="#171a21" stroke="#2a3242" stroke-dasharray="4 4"/>
+<text x="838" y="90" text-anchor="middle" class="t">remote</text><text x="838" y="110" text-anchor="middle" class="m">optional</text>
+
+<path class="e" d="M526 100 L606 100"/><text x="566" y="92" text-anchor="middle" class="m">push</text>
+<path class="e" d="M606 190 L528 190"/><text x="566" y="210" text-anchor="middle" class="m">fetch</text>
+<path class="e" d="M768 96 L798 96"/>
+<text x="808" y="160" class="m">off ·</text><text x="808" y="178" class="m">branch ·</text><text x="808" y="196" class="m">main</text>
+<text x="376" y="262" class="c">… install --client https://host/mcp</text>
+</svg>

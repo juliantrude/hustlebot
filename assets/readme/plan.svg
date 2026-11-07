@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 300" width="900" height="300" role="img"
+     aria-label="A plan as a dependency graph: one Haiku increment, then three increments that run at once, then one that needs two of them, then the acceptance overseer. Each increment carries a model and its session points.">
+<style>
+  text{font-family:system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
+  .t{font-size:16px;font-weight:600;fill:#e6e6e6}
+  .m{font-size:13px;fill:#8a94a6}
+  .h{font-size:11px;font-weight:700;fill:#8a94a6;letter-spacing:.12em}
+  .e{stroke:#4b5a74;stroke-width:1.6;fill:none;marker-end:url(#a)}
+  @keyframes run{0%,100%{opacity:.35}50%{opacity:1}}
+  .live{animation:run 2.4s ease-in-out infinite}
+  .live2{animation:run 2.4s ease-in-out .8s infinite}
+  .live3{animation:run 2.4s ease-in-out 1.6s infinite}
+</style>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#4b5a74"/></marker></defs>
+<rect width="900" height="300" rx="16" fill="#0f1115"/>
+<rect x=".5" y=".5" width="899" height="299" rx="16" fill="none" stroke="#232833"/>
+
+<!-- parallel column -->
+<rect x="196" y="44" width="168" height="196" rx="12" fill="#5ab0f0" fill-opacity=".06" stroke="#5ab0f0" stroke-opacity=".45" stroke-dasharray="4 4"/>
+<text x="280" y="34" text-anchor="middle" class="h" style="fill:#5ab0f0">RUN AT ONCE</text>
+
+<path class="e" d="M164 142 C180 142 190 82 206 82"/>
+<path class="e" d="M164 142 L206 142"/>
+<path class="e" d="M164 142 C180 142 190 202 206 202"/>
+<path class="e" d="M354 82 C380 82 384 112 406 112"/>
+<path class="e" d="M354 142 C380 142 384 112 406 112"/>
+<path class="e" d="M534 112 C556 112 560 142 582 142"/>
+<path class="e" d="M354 202 C470 202 540 160 582 150"/>
+<text x="378" y="80" class="m" font-style="italic">needs</text>
+
+<!-- increments: stripe = model, squares = points -->
+<g>
+  <rect x="36" y="124" width="128" height="36" rx="8" fill="#171a21" stroke="#2a3242"/><rect x="36" y="124" width="5" height="36" rx="2" fill="#4cc9d8"/>
+  <text x="52" y="147" class="t">schema</text><rect x="146" y="137" width="8" height="8" rx="1.5" fill="#4cc9d8"/>
+</g>
+<g class="live">
+  <rect x="206" y="64" width="148" height="36" rx="8" fill="#171a21" stroke="#5ab0f0"/><rect x="206" y="64" width="5" height="36" rx="2" fill="#d8a548"/>
+  <text x="222" y="87" class="t">cart</text><rect x="326" y="77" width="8" height="8" rx="1.5" fill="#d8a548"/><rect x="337" y="77" width="8" height="8" rx="1.5" fill="#d8a548"/>
+</g>
+<g class="live2">
+  <rect x="206" y="124" width="148" height="36" rx="8" fill="#171a21" stroke="#5ab0f0"/><rect x="206" y="124" width="5" height="36" rx="2" fill="#a78bfa"/>
+  <text x="222" y="147" class="t">payment</text><rect x="304" y="137" width="8" height="8" rx="1.5" fill="#a78bfa"/><rect x="315" y="137" width="8" height="8" rx="1.5" fill="#a78bfa"/><rect x="326" y="137" width="8" height="8" rx="1.5" fill="#a78bfa"/><rect x="337" y="137" width="8" height="8" rx="1.5" fill="#a78bfa"/>
+</g>
+<g class="live3">
+  <rect x="206" y="184" width="148" height="36" rx="8" fill="#171a21" stroke="#5ab0f0"/><rect x="206" y="184" width="5" height="36" rx="2" fill="#4cc9d8"/>
+  <text x="222" y="207" class="t">mails</text><rect x="337" y="197" width="8" height="8" rx="1.5" fill="#4cc9d8"/>
+</g>
+<g>
+  <rect x="406" y="94" width="128" height="36" rx="8" fill="#171a21" stroke="#2a3242"/><rect x="406" y="94" width="5" height="36" rx="2" fill="#d8a548"/>
+  <text x="422" y="117" class="t">client</text><rect x="505" y="107" width="8" height="8" rx="1.5" fill="#d8a548"/><rect x="516" y="107" width="8" height="8" rx="1.5" fill="#d8a548"/>
+</g>
+<g>
+  <rect x="582" y="124" width="132" height="36" rx="8" fill="#171a21" stroke="#a78bfa" stroke-dasharray="5 3"/><rect x="582" y="124" width="5" height="36" rx="2" fill="#a78bfa"/>
+  <text x="598" y="147" class="t">accept</text><text x="648" y="181" text-anchor="middle" class="m">overseer checks</text><text x="648" y="198" text-anchor="middle" class="m">the Definition of Done</text>
+</g>
+
+<!-- legend -->
+<line x1="744" y1="40" x2="744" y2="260" stroke="#232833"/>
+<text x="766" y="54" class="h">SESSION POINTS</text>
+<g class="m">
+  <rect x="766" y="74" width="10" height="10" rx="2" fill="#4cc9d8"/><text x="790" y="84" style="fill:#e6e6e6">Haiku · 1</text>
+  <rect x="766" y="104" width="10" height="10" rx="2" fill="#d8a548"/><text x="790" y="114" style="fill:#e6e6e6">Sonnet · 2</text>
+  <rect x="766" y="134" width="10" height="10" rx="2" fill="#a78bfa"/><text x="790" y="144" style="fill:#e6e6e6">Opus · 4</text>
+  <rect x="766" y="164" width="10" height="10" rx="2" fill="#e46fb8"/><text x="790" y="174" style="fill:#e6e6e6">Fable · 8</text>
+</g>
+<text x="766" y="214" class="m">one increment</text>
+<text x="766" y="231" class="m">= one session,</text>
+<text x="766" y="248" class="m">≤ 600k context</text>
+
+<text x="36" y="272" class="m">Independent increments run side by side · dependent ones wait · the model is picked by how hard the task is</text>
+</svg>

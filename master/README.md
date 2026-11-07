@@ -62,6 +62,18 @@ If the old loop's `hustlebot` plugin is still installed, the installer leaves
 it alone and skips `/hustle` (two plugins of one name would be ambiguous); see
 [Migrating](#migrating-from-the-old-loop).
 
+**A hustle host and planning clients** ([ADR 0016](../docs/adr/0016-hustle-host-and-remote-planning.md)).
+On a dedicated machine, install as above with `--bind` for the dashboard and
+`--mcp-bind 0.0.0.0 --mcp-name <host>` for a second MCP endpoint (port 8772,
+interactive token only), both behind a TLS reverse proxy. Projects live by
+name under `--projects` (default `~/hustles`). On each machine you plan from,
+install only `/hustle` and the MCP entry, with the host's `interactive-token`:
+
+```sh
+uv run --project master --no-dev python -m hustlemaster.install \
+  --client https://<host>/mcp --token <interactive-token>
+```
+
 Logs: `journalctl --user -u hustlemaster -f`. Restarting the unit does not
 stop running sessions: the next process adopts them.
 

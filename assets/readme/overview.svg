@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 330" width="1200" height="330" role="img"
+     aria-label="hustlebot in one picture: you plan a goal with /hustle into a dependency graph of increments; the hustlemaster shares session points by usage and weight; hustlebots work increments in parallel, each in its own worktree; verified results are fast-forwarded into main.">
+<style>
+  text{font-family:system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
+  .t{font-size:16px;font-weight:600;fill:#e6e6e6}
+  .m{font-size:13px;fill:#8a94a6}
+  .c{font-size:15px;fill:#e6e6e6;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+  .h{font-size:12px;font-weight:700;fill:#8a94a6;letter-spacing:.12em}
+  .n{font-size:13px;font-weight:700;fill:#5ab0f0}
+  .e{stroke:#4b5a74;stroke-width:1.6;fill:none}
+  .arrow{stroke:#5ab0f0;stroke-opacity:.7;stroke-width:2;fill:none;marker-end:url(#a);stroke-dasharray:7 5;animation:dash 1s linear infinite}
+  @keyframes dash{to{stroke-dashoffset:-24}}
+  @keyframes fill{0%{transform:scaleX(.04)}80%,100%{transform:scaleX(1)}}
+  .bar{transform-box:fill-box;transform-origin:left;animation:fill 5s ease-in-out infinite}
+  .b2{animation-delay:-1.7s}.b3{animation-delay:-3.3s}
+  @keyframes pop{0%,15%{opacity:0;transform:scale(.3)}25%,100%{opacity:1;transform:scale(1)}}
+  .commit{transform-box:fill-box;transform-origin:center;animation:pop 5s ease-out infinite}
+  .k2{animation-delay:1.2s}.k3{animation-delay:2.4s}.k4{animation-delay:3.6s}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .ring{transform-origin:470px 190px;animation:spin 14s linear infinite}
+</style>
+<defs>
+  <marker id="a" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#5ab0f0"/></marker>
+  <radialGradient id="core"><stop offset="0" stop-color="#9fd2ff"/><stop offset=".45" stop-color="#3a6df0"/><stop offset="1" stop-color="#1a2a6c" stop-opacity="0"/></radialGradient>
+</defs>
+<rect width="1200" height="330" rx="18" fill="#0f1115"/>
+<rect x=".5" y=".5" width="1199" height="329" rx="18" fill="none" stroke="#232833"/>
+
+<!-- 1 plan -->
+<text x="36" y="46" class="n">1</text><text x="52" y="46" class="h">PLAN</text>
+<rect x="36" y="62" width="270" height="40" rx="8" fill="#171a21" stroke="#2a3242"/>
+<text x="52" y="88" class="c"><tspan fill="#5ee08a">›</tspan> /hustle <tspan fill="#8a94a6">ship checkout v2</tspan></text>
+<g>
+  <path class="e" d="M70 190 C90 190 100 140 124 140"/><path class="e" d="M70 190 L124 190"/><path class="e" d="M70 190 C90 190 100 240 124 240"/>
+  <path class="e" d="M146 140 C170 140 176 165 196 165"/><path class="e" d="M146 190 C170 190 176 165 196 165"/>
+  <path class="e" d="M218 165 C240 165 246 200 268 200"/><path class="e" d="M146 240 C200 240 230 210 268 204"/>
+  <circle cx="60" cy="190" r="11" fill="#4cc9d8"/>
+  <circle cx="135" cy="140" r="11" fill="#d8a548"/><circle cx="135" cy="190" r="11" fill="#a78bfa"/><circle cx="135" cy="240" r="11" fill="#4cc9d8"/>
+  <circle cx="207" cy="165" r="11" fill="#d8a548"/>
+  <rect x="266" y="190" width="22" height="22" rx="3" transform="rotate(45 277 201)" fill="none" stroke="#a78bfa" stroke-width="2.5"/>
+</g>
+<text x="36" y="290" class="m">dependency graph · a model per increment</text>
+
+<path class="arrow" d="M318 190 L384 190"/>
+
+<!-- 2 schedule -->
+<text x="400" y="46" class="n">2</text><text x="416" y="46" class="h">SCHEDULE</text>
+<circle cx="470" cy="190" r="62" fill="url(#core)" opacity=".85"/>
+<circle cx="470" cy="190" r="74" fill="none" stroke="#232833" stroke-width="5"/>
+<g class="ring"><path d="M470 116 A74 74 0 0 1 538 220" fill="none" stroke="#a78bfa" stroke-width="5" stroke-linecap="round"/></g>
+<circle cx="470" cy="190" r="86" fill="none" stroke="#1c2230" stroke-width="3"/>
+<path d="M398 145 A86 86 0 0 1 470 104" fill="none" stroke="#f07a7a" stroke-width="3" stroke-linecap="round"/>
+<text x="470" y="192" text-anchor="middle" style="font-size:30px;font-weight:700;fill:#fff">20</text>
+<text x="470" y="212" text-anchor="middle" style="font-size:11px;font-weight:700;letter-spacing:.14em;fill:#dbe8ff">POINTS</text>
+<text x="400" y="290" class="m">hustlemaster · usage · weights</text>
+
+<path class="arrow" d="M562 150 C590 120 600 108 628 108"/>
+<path class="arrow" d="M562 190 L628 190"/>
+<path class="arrow" d="M562 230 C590 260 600 272 628 272"/>
+
+<!-- 3 work -->
+<text x="644" y="46" class="n">3</text><text x="660" y="46" class="h">WORK IN PARALLEL</text>
+<g>
+  <rect x="644" y="78" width="300" height="60" rx="10" fill="#171a21" stroke="#2a3242"/><rect x="644" y="78" width="5" height="60" rx="2" fill="#d8a548"/>
+  <text x="662" y="102" class="t">hustlebot · cart</text><text x="930" y="102" text-anchor="end" class="m">sonnet</text>
+  <rect x="662" y="116" width="264" height="6" rx="3" fill="#232833"/><rect class="bar" x="662" y="116" width="264" height="6" rx="3" fill="#5ab0f0"/>
+</g>
+<g>
+  <rect x="644" y="160" width="300" height="60" rx="10" fill="#171a21" stroke="#2a3242"/><rect x="644" y="160" width="5" height="60" rx="2" fill="#a78bfa"/>
+  <text x="662" y="184" class="t">hustlebot · payment</text><text x="930" y="184" text-anchor="end" class="m">opus</text>
+  <rect x="662" y="198" width="264" height="6" rx="3" fill="#232833"/><rect class="bar b2" x="662" y="198" width="264" height="6" rx="3" fill="#5ab0f0"/>
+</g>
+<g>
+  <rect x="644" y="242" width="300" height="60" rx="10" fill="#171a21" stroke="#2a3242"/><rect x="644" y="242" width="5" height="60" rx="2" fill="#4cc9d8"/>
+  <text x="662" y="266" class="t">hustlebot · mails</text><text x="930" y="266" text-anchor="end" class="m">haiku</text>
+  <rect x="662" y="280" width="264" height="6" rx="3" fill="#232833"/><rect class="bar b3" x="662" y="280" width="264" height="6" rx="3" fill="#5ab0f0"/>
+</g>
+
+<path class="arrow" d="M952 108 C980 108 986 150 1004 176"/>
+<path class="arrow" d="M952 190 L1004 190"/>
+<path class="arrow" d="M952 272 C980 272 986 230 1004 204"/>
+
+<!-- 4 merge -->
+<text x="1020" y="46" class="n">4</text><text x="1036" y="46" class="h">MERGE</text>
+<line x1="1020" y1="190" x2="1170" y2="190" stroke="#5ee08a" stroke-width="3" stroke-linecap="round"/>
+<circle class="commit" cx="1036" cy="190" r="8" fill="#5ee08a"/><circle class="commit k2" cx="1076" cy="190" r="8" fill="#5ee08a"/>
+<circle class="commit k3" cx="1116" cy="190" r="8" fill="#5ee08a"/><circle class="commit k4" cx="1156" cy="190" r="8" fill="#5ee08a"/>
+<text x="1020" y="164" class="t">main</text>
+<text x="1020" y="228" class="m">rebase · check ·</text><text x="1020" y="246" class="m">fast-forward</text>
+<text x="1020" y="290" class="m">verified only</text>
+</svg>

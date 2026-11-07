@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 270" width="900" height="270" role="img"
+     aria-label="The same five increments, once in one long session one after another, once as hustlebots: three of them run at once, so the work is done much earlier, and every session starts with a fresh context.">
+<style>
+  text{font-family:system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
+  .t{font-size:14px;font-weight:600;fill:#0f1115}
+  .m{font-size:13px;fill:#8a94a6}
+  .h{font-size:11px;font-weight:700;fill:#8a94a6;letter-spacing:.12em}
+  .l{font-size:15px;font-weight:600;fill:#e6e6e6}
+  @keyframes sweep{from{transform:translateX(0)}to{transform:translateX(560px)}}
+  .now{animation:sweep 6s linear infinite}
+</style>
+<rect width="900" height="270" rx="16" fill="#0f1115"/>
+<rect x=".5" y=".5" width="899" height="269" rx="16" fill="none" stroke="#232833"/>
+
+<text x="32" y="48" class="h">ONE LONG SESSION</text>
+<text x="32" y="70" class="m">context keeps growing</text>
+<g>
+  <rect x="200" y="36" width="108" height="32" rx="6" fill="#4cc9d8"/><text x="254" y="57" text-anchor="middle" class="t">A</text>
+  <rect x="312" y="36" width="108" height="32" rx="6" fill="#d8a548"/><text x="366" y="57" text-anchor="middle" class="t">B</text>
+  <rect x="424" y="36" width="108" height="32" rx="6" fill="#a78bfa"/><text x="478" y="57" text-anchor="middle" class="t">C</text>
+  <rect x="536" y="36" width="108" height="32" rx="6" fill="#4cc9d8"/><text x="590" y="57" text-anchor="middle" class="t">D</text>
+  <rect x="648" y="36" width="108" height="32" rx="6" fill="#d8a548"/><text x="702" y="57" text-anchor="middle" class="t">E</text>
+</g>
+<defs><linearGradient id="ctx" x1="0" x2="1"><stop offset="0" stop-color="#5ee08a"/><stop offset=".6" stop-color="#f0b74d"/><stop offset="1" stop-color="#f07a7a"/></linearGradient></defs>
+<path d="M200 76 L756 76 L756 84 L200 77z" fill="url(#ctx)" opacity=".8"/>
+
+<text x="32" y="132" class="h">HUSTLEBOTS</text>
+<text x="32" y="154" class="m">fresh worktree,</text>
+<text x="32" y="171" class="m">fresh context each</text>
+<g>
+  <rect x="200" y="140" width="108" height="32" rx="6" fill="#4cc9d8"/><text x="254" y="161" text-anchor="middle" class="t">A</text>
+  <rect x="312" y="104" width="108" height="32" rx="6" fill="#d8a548"/><text x="366" y="125" text-anchor="middle" class="t">B</text>
+  <rect x="312" y="140" width="108" height="32" rx="6" fill="#a78bfa"/><text x="366" y="161" text-anchor="middle" class="t">C</text>
+  <rect x="312" y="176" width="108" height="32" rx="6" fill="#4cc9d8"/><text x="366" y="197" text-anchor="middle" class="t">D</text>
+  <rect x="424" y="140" width="108" height="32" rx="6" fill="#d8a548"/><text x="478" y="161" text-anchor="middle" class="t">E</text>
+</g>
+<rect x="536" y="104" width="220" height="104" rx="8" fill="#5ee08a" fill-opacity=".07" stroke="#5ee08a" stroke-opacity=".5" stroke-dasharray="4 4"/>
+<text x="646" y="150" text-anchor="middle" class="l" style="fill:#5ee08a">done earlier</text>
+<text x="646" y="170" text-anchor="middle" class="m">same increments, same tokens</text>
+
+<line x1="200" y1="232" x2="770" y2="232" stroke="#4b5a74" stroke-width="1.5"/>
+<path d="M770 227 L780 232 L770 237z" fill="#4b5a74"/>
+<text x="786" y="237" class="m">time</text>
+<line class="now" x1="200" y1="28" x2="200" y2="216" stroke="#5ab0f0" stroke-opacity=".6" stroke-width="1.5"/>
+</svg>

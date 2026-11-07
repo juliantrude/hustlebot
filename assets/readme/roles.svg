@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 320" width="900" height="320" role="img"
+     aria-label="You submit plans and steer in the dashboard. The hustlemaster is a service, not an agent: it stores plans, schedules, reads the usage and merges. It starts worker hustlebots that implement one increment each and overseer hustlebots that may change the plan.">
+<style>
+  text{font-family:system-ui,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif}
+  .t{font-size:16px;font-weight:600;fill:#e6e6e6}
+  .s{font-size:14px;fill:#c8d0dc}
+  .m{font-size:13px;fill:#8a94a6}
+  .h{font-size:11px;font-weight:700;fill:#8a94a6;letter-spacing:.12em}
+  .e{stroke:#4b5a74;stroke-width:1.6;fill:none;marker-end:url(#a)}
+  @keyframes dash{to{stroke-dashoffset:-20}}
+  .flow{stroke-dasharray:6 4;animation:dash 1s linear infinite}
+</style>
+<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0L10 5L0 10z" fill="#4b5a74"/></marker></defs>
+<rect width="900" height="320" rx="16" fill="#0f1115"/>
+<rect x=".5" y=".5" width="899" height="319" rx="16" fill="none" stroke="#232833"/>
+
+<!-- you -->
+<text x="32" y="44" class="h">YOU</text>
+<rect x="32" y="60" width="190" height="66" rx="10" fill="#171a21" stroke="#2a3242"/>
+<text x="48" y="88" class="t">/hustle</text><text x="48" y="110" class="m">plan → submit</text>
+<rect x="32" y="146" width="190" height="86" rx="10" fill="#171a21" stroke="#2a3242"/>
+<text x="48" y="174" class="t">dashboard</text><text x="48" y="196" class="m">weights · points ·</text><text x="48" y="214" class="m">approvals · thresholds</text>
+
+<!-- hustlemaster -->
+<text x="300" y="44" class="h">HUSTLEMASTER · A SERVICE, NOT AN AGENT</text>
+<rect x="300" y="60" width="270" height="172" rx="12" fill="#10263a" stroke="#5ab0f0" stroke-opacity=".6"/>
+<g class="s">
+  <text x="320" y="92">◇ stores and versions plans</text>
+  <text x="320" y="122">◇ schedules by weight</text>
+  <text x="320" y="152">◇ reads the usage, parks at limits</text>
+  <text x="320" y="182">◇ rebase · check · fast-forward</text>
+  <text x="338" y="202"><tspan class="m">main, worktree removed</tspan></text>
+</g>
+<path class="e" d="M222 93 L298 93"/>
+<path class="e" d="M222 189 L298 189"/>
+
+<!-- hustlebots -->
+<text x="650" y="44" class="h">HUSTLEBOTS · HEADLESS</text>
+<rect x="650" y="60" width="220" height="74" rx="10" fill="#171a21" stroke="#d8a548" stroke-opacity=".7"/>
+<text x="666" y="86" class="t">worker</text><text x="666" y="106" class="m">implements one increment</text><text x="666" y="123" class="m">→ one commit + report</text>
+<rect x="650" y="150" width="220" height="82" rx="10" fill="#171a21" stroke="#a78bfa" stroke-opacity=".8" stroke-dasharray="5 3"/>
+<text x="666" y="176" class="t">overseer</text><text x="666" y="196" class="m">split · upgrade · rewrite ·</text><text x="666" y="213" class="m">block · accept the hustle</text>
+<path class="e flow" d="M572 84 L648 84"/><text x="582" y="76" class="m">starts</text>
+<path class="e" d="M648 112 L572 112"/><text x="582" y="130" class="m">report</text>
+<path class="e" d="M648 200 L572 200"/><text x="582" y="222" class="m">changes</text><text x="582" y="238" class="m">plan</text>
+
+<text x="32" y="278" class="m">Only you raise budgets: approvals, weights, points and Fable are dashboard-only. No agent can grant itself more.</text>
+</svg>

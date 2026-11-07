@@ -177,3 +177,12 @@ def test_the_external_endpoint_takes_only_the_interactive_token(tmp_path):
         assert "submit_hustle" in session(outside, "user-token", ("list", None))[0]
     finally:
         outside.stop()
+
+
+def test_project_env_files(tmp_path):
+    from hustlemaster.runner import read_env
+
+    env = tmp_path / "app.env"
+    env.write_text("# test user\nexport E2E_USER=e2e\nE2E_PASSWORD='p w=1'\nnot a line\n1BAD=x\n")
+    assert read_env(env) == {"E2E_USER": "e2e", "E2E_PASSWORD": "p w=1"}
+    assert read_env(tmp_path / "missing.env") == {}

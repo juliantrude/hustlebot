@@ -32,6 +32,9 @@ repositories, where nothing half-done should go through the public remote.
   given with `--mcp-name`; hustlebot session tokens work on the local endpoint alone.
 - The installer has two modes: the **server** install on the hustle host, and a **client** install
   (`--client <url>`) that adds only `/hustle` and the MCP entry with the host's interactive token.
+- **Project environment files** `<hustlemaster home>/env/<project>.env` (`KEY=value`) reach the sessions of that
+  project as environment variables: secrets its checks need, such as a test user's login. They live outside every
+  repository and are never shown.
 - Hustlebots install nothing system-wide; a missing system tool makes the increment `blocked` with the reason.
 
 ## Consequences

@@ -259,7 +259,7 @@ class Runner:
         self.permission_mode = permission_mode
 
     def start(self, hustle: Hustle, increment: Increment, worktree: Path | str, *, allow_fable: bool,
-              note: str | None = None) -> Hustlebot:
+              note: str | None = None, extra_env: dict[str, str] | None = None) -> Hustlebot:
         if increment.model == "fable" and not allow_fable:
             # the plan was valid when it was stored; the setting may have been switched off since (ADR 0014)
             raise PermissionError(f"increment {increment.id} needs Fable, and allow_fable is off")
@@ -269,7 +269,7 @@ class Runner:
         config = run_dir / "mcp.json"
         config.write_text(json.dumps(self.mcp_config))
         token = self.tokens.issue(increment.mode, hustle.id, increment.id)
-        env = {**(self.env if self.env is not None else os.environ), TOKEN_ENV: token}
+        env = {**(self.env if self.env is not None else os.environ), **(extra_env or {}), TOKEN_ENV: token}
         argv = command(increment, text, plugin_dir=self.plugin_dir, mcp_config=config, claude=self.claude,
                        permission_mode=self.permission_mode)
         try:
@@ -290,6 +290,24 @@ class Runner:
         run_dir = _runs_of(self.runs, hustle, increment) / str(int(last.name) + 1 if last else 1)
         run_dir.mkdir(parents=True)
         return run_dir
+
+
+def read_env(path: Path) -> dict[str, str]:
+    """A project's environment file: `KEY=value` lines, `#` comments, optional `export ` and quotes. Its values are
+    secrets (a test user's password); they reach the sessions' environment and nothing else."""
+    found: dict[str, str] = {}
+    if not path.is_file():
+        return found
+    for line in path.read_text().splitlines():
+        line = line.strip().removeprefix("export ").strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = (part.strip() for part in line.split("=", 1))
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+            value = value[1:-1]
+        if key.isidentifier():
+            found[key] = value
+    return found
 
 
 def _runs_of(runs: Path | str, hustle: str, increment: str) -> Path:

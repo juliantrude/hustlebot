@@ -62,6 +62,16 @@ job. ADR 0007 has the Executor commit directly to `main`.
   in the same worktree. A branch already contained in `main` that moved since its
   creation (the branch's oldest reflog entry) was fast-forwarded before the restart; the
   merge then only removes the worktree.
+- As built (`hustlemaster/service.py`): only increments the store still marks running
+  are touched, since a worktree of a settled increment just waits for its next attempt.
+  A session still running is adopted: its points count and its end is settled like any
+  other, but its MCP token died with the old process, so its calls are refused. A run
+  that ended with a result (any report) is settled as if the restart had not happened,
+  so a reported failure still costs its attempt; one cut off without a result resumes
+  without an attempt and is told so. A running event overseer is ended and its event
+  opened again, so its successor reads the plan as it is now. An increment that cannot
+  start (repository gone, Fable switched off since) is blocked with the reason as its
+  note instead of being retried every pass.
 
 ## Consequences
 

@@ -194,5 +194,8 @@ class Endpoint:
         return self
 
     def stop(self) -> None:
+        if not self._thread.is_alive():
+            self._sock.close()  # bound in the constructor even if it never served
+            return
         self._server.should_exit = True
         self._thread.join(timeout=10)

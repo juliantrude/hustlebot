@@ -66,6 +66,12 @@ and without bypassing the user on cost.
   told what the overseer said (unless the overseer split it away). Reported `blocked`: the increment is marked
   blocked, only its dependants wait. Anything else fails the event and blocks the increment as well — the
   overseer is the last automatic resort — and drops its proposals. Cut off at the limit, the event stays open.
+- **Proposals in a report** repeat what the worker sent with `propose_change`. They are stored only when none of
+  the session's own proposals arrived over MCP (its calls failed, or it forgot), so nothing is lost and nothing
+  is decided twice. Each sync gathers what is open, so proposals arriving while a proposal overseer runs form the
+  next event; a proposal overseer works in its own worktree at `main`, removed when it ends.
+- **A planned overseer increment** (the acceptance) ends `done` without a commit: it is done without a merge.
+  Only if it committed (e.g. resolved something in its worktree) is it merged like a worker.
 - While an event is open or running its increment is **held** (`Increment.held`), so it is not ready even when
   its dependencies are done. The approvals increment uses the same field for pending approvals.
 

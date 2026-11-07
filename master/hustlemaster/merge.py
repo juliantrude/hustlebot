@@ -180,7 +180,7 @@ class Orphan:
     run: Path | None  # the last run's directory
 
 
-def _alive(run_dir: Path) -> bool:
+def alive(run_dir: Path) -> bool:
     """Whether the run's session still runs; a hustlemaster restart need not end its children."""
     try:
         pid = int((run_dir / "pid").read_text())
@@ -213,7 +213,7 @@ def orphans(repo: Path | str, hustles: list[Hustle], runs: Path | str) -> list[O
             continue
         hustle, increment = by_branch[wt.branch]
         run = runner.last_run(runs, hustle, increment)
-        if run is not None and _alive(run):
+        if run is not None and alive(run):
             action = RUNNING
         elif run is not None and runner.read_run(run).status == "done":
             action = MERGE

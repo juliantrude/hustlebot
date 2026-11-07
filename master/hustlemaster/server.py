@@ -1,18 +1,22 @@
-"""The master's web app on 127.0.0.1: the dashboard, its JSON API and the graph-engine page.
+"""The hustlemaster: the service loop (`service.py`) and its web app on 127.0.0.1 — the dashboard, its JSON API
+and the graph-engine page.
 
-    python3 -m hustlemaster.server --db hustles.db --port 8770     # from master/
+    python3 -m hustlemaster.server --db ~/.local/share/hustlemaster/hustles.db     # from master/
 """
 
 from __future__ import annotations
 
 import argparse
 import json
+import logging
 import re
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from .access import interactive_token
 from .graph import graph_doc
 from .live import Live
+from .service import Service
 from .store import Store
 
 DASHBOARD = Path(__file__).resolve().parent.parent / "dashboard"
@@ -92,9 +96,11 @@ def make_handler(live: Live, engine: Path):
     return Handler
 
 
-def serve(store: Store, port: int, engine: Path | None = None) -> tuple[ThreadingHTTPServer, Live]:
-    """The web app on 127.0.0.1:`port` (0 picks a free one), not yet serving; the caller runs `serve_forever`."""
-    live = Live(store)
+def serve(store: Store, port: int, engine: Path | None = None,
+          live: Live | None = None) -> tuple[ThreadingHTTPServer, Live]:
+    """The web app on 127.0.0.1:`port` (0 picks a free one), not yet serving; the caller runs `serve_forever`.
+    `live` is the service's; without one the views show the store with nothing running."""
+    live = live or Live(store)
     server = ThreadingHTTPServer(("127.0.0.1", port), make_handler(live, engine or engine_page()))
     return server, live
 
@@ -102,15 +108,28 @@ def serve(store: Store, port: int, engine: Path | None = None) -> tuple[Threadin
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--db", required=True, help="the hustle store (SQLite), created if missing")
+    parser.add_argument("--home", help="runs, worktrees and the interactive token; default: beside the store")
     parser.add_argument("--port", type=int, default=8770)  # 8765 is the prototype demo, 8786+ the old loop's monitors
+    # fixed, because the interactive sessions' MCP entry names it
+    parser.add_argument("--mcp-port", type=int, default=8771)
+    parser.add_argument("--usage-cwd", help="a folder Claude Code trusts, for reading `/usage`; default: a project")
+    parser.add_argument("--claude", default="claude")
     args = parser.parse_args()
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     engine = engine_page()
     if not engine.is_file():
         parser.error(f"graph-engine page not found at {engine}")
-    server, live = serve(Store(args.db), args.port, engine)
-    live.run_forever()
-    print(f"hustlemaster on http://127.0.0.1:{server.server_port}/")
-    server.serve_forever()
+    store = Store(args.db)
+    home = Path(args.home or Path(args.db).resolve().parent)
+    service = Service(store, home, claude=args.claude, mcp_port=args.mcp_port, usage_cwd=args.usage_cwd,
+                      interactive=interactive_token(home / "interactive-token"))
+    server, _ = serve(store, args.port, engine, service.live)
+    service.start()
+    print(f"hustlemaster on http://127.0.0.1:{server.server_port}/, MCP on {service.endpoint.url}", flush=True)
+    try:
+        server.serve_forever()
+    finally:
+        service.stop()
 
 
 if __name__ == "__main__":
